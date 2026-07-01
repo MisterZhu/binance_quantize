@@ -321,7 +321,29 @@ SQLite 表：
 
 第一版使用交易所持仓归零和本地离场动作生成复盘摘要；手续费、逐笔成交均价、分批止盈成交细节后续继续增强。
 
-## 10. 状态机
+## 10. 复盘导出与清理
+
+项目内 Codex skill：
+
+- `.codex/skills/trade-review/SKILL.md`
+
+导出脚本：
+
+- `.codex/skills/trade-review/scripts/export_trade_review.py`
+
+导出内容：
+
+- `data/exports/trade_review/trade_review_latest.jsonl`
+- `data/exports/trade_review/trade_stats_latest.csv`
+- `data/exports/trade_review/trade_review_report.md`
+
+清理脚本：
+
+- `scripts/cleanup_trading_data.py`
+
+清理脚本默认 dry-run，只有传入 `--confirm` 才会删除；建议同时传入 `--backup`。
+
+## 11. 状态机
 
 主循环逻辑：
 
@@ -344,7 +366,7 @@ SQLite 表：
 
 注意：分批止盈单在开仓成交后由 OrderManager 立即挂出；PositionManager 后续主要通过交易所持仓查询同步剩余仓位。
 
-## 11. UI
+## 12. UI
 
 入口：
 
@@ -362,7 +384,7 @@ SQLite 表：
 - API检测
 - 配置
 
-## 12. 运行方式
+## 13. 运行方式
 
 ```bash
 cd /Users/geyuming/Hobby/python/binance_quantize
@@ -382,7 +404,7 @@ python bot_runner.py --once
 python bot_runner.py --interval 60
 ```
 
-## 13. 安全约束
+## 14. 安全约束
 
 - `.env` 不提交。
 - API Key 不显示明文。
@@ -390,7 +412,7 @@ python bot_runner.py --interval 60
 - 保护止损 required 默认开启。
 - API Key 不应开启提现权限。
 
-## 14. 后续开发项
+## 15. 后续开发项
 
 - 强平价缓冲检查
 - 更完整的成交回填和 trades 统计

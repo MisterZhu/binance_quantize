@@ -263,5 +263,6 @@ workingType=MARK_PRICE
 - 分批止盈订单成交后的逐笔状态回填需要增强。
 - `trade_journal` 的手续费、精确成交均价、逐笔成交 PnL 需要补齐。
 - 后续增加 AI 复盘总结字段自动生成。
+- 后续可扩展 `trade-review` skill，让它自动生成策略调整建议和参数实验计划。
 - WebSocket 行情与订单推送尚未实现。
 - 回测和参数优化尚未实现。

@@ -181,3 +181,43 @@ exchange:
 ```bash
 .venv/bin/python check_auth.py
 ```
+
+## 交易复盘导出
+
+SQLite 数据库保存在：
+
+```text
+data/trader.sqlite
+```
+
+导出给 Codex CLI / AI 分析的 JSONL、CSV 和 Markdown：
+
+```bash
+.venv/bin/python .codex/skills/trade-review/scripts/export_trade_review.py --limit 100
+```
+
+输出目录：
+
+```text
+data/exports/trade_review/
+```
+
+## 清理历史数据
+
+先预览，不删除：
+
+```bash
+.venv/bin/python scripts/cleanup_trading_data.py --older-than-days 90
+```
+
+确认删除前建议备份：
+
+```bash
+.venv/bin/python scripts/cleanup_trading_data.py --older-than-days 90 --backup --confirm
+```
+
+清空所有交易运行数据需要显式确认：
+
+```bash
+.venv/bin/python scripts/cleanup_trading_data.py --all --backup --confirm
+```

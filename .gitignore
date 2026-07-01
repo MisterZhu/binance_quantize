@@ -4,6 +4,8 @@ __pycache__/
 .env
 data/*.sqlite
 data/runtime_strategy.yaml
+data/exports/
+data/backups/
 logs/*.log
 .DS_Store
 .trellis/.developer
