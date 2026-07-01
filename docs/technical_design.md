@@ -266,6 +266,8 @@ SQLite 表：
 - orders
 - active_positions
 - trades
+- trade_journal
+- trade_events
 - risk_events
 - bot_state
 
@@ -287,6 +289,37 @@ SQLite 表：
 - `exit_plan`: 分批止盈和移动止损计划
 - `partial_state`: 分批止盈订单和状态
 - `raw`: 原始执行数据
+
+### trade_journal
+
+用于 AI 复盘的一笔交易摘要：
+
+- 策略 ID / 名称 / 大类 / 方向模式
+- 开仓和平仓时间
+- 入场价、平仓价、初始止损、最终止损
+- 仓位数量和剩余数量
+- 估算 PnL、R 倍数、盈亏结果
+- 离场原因
+- 入场检查清单
+- exit_plan
+- partial_state
+- market_context
+- raw orders
+- ai_review_notes
+
+### trade_events
+
+用于记录交易生命周期事件：
+
+- `entry_submitted`
+- `entry_filled`
+- `protective_stop_placed`
+- `partial_take_profit_placed`
+- `position_size_changed`
+- `trailing_stop_updated`
+- `trade_closed`
+
+第一版使用交易所持仓归零和本地离场动作生成复盘摘要；手续费、逐笔成交均价、分批止盈成交细节后续继续增强。
 
 ## 10. 状态机
 

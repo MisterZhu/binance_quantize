@@ -804,7 +804,9 @@ def main() -> None:
 
     render_chart(config)
 
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs(["信号", "订单", "持仓", "风控事件", "策略", "交易配置", "合约", "API检测", "配置"])
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11 = st.tabs(
+        ["信号", "订单", "持仓", "交易复盘", "交易事件", "风控事件", "策略", "交易配置", "合约", "API检测", "配置"]
+    )
     with tab1:
         df = rows_to_df(db.recent_rows("signals", 100))
         st.dataframe(df, use_container_width=True, hide_index=True)
@@ -816,15 +818,21 @@ def main() -> None:
         df = rows_to_df(db.recent_rows("active_positions", 50))
         st.dataframe(df, use_container_width=True, hide_index=True)
     with tab4:
-        df = rows_to_df(db.recent_rows("risk_events", 100))
+        df = rows_to_df(db.recent_rows("trade_journal", 100))
         st.dataframe(df, use_container_width=True, hide_index=True)
     with tab5:
-        render_strategy_editor(strategy_store)
+        df = rows_to_df(db.recent_rows("trade_events", 200))
+        st.dataframe(df, use_container_width=True, hide_index=True)
     with tab6:
-        render_trade_config(config)
+        df = rows_to_df(db.recent_rows("risk_events", 100))
+        st.dataframe(df, use_container_width=True, hide_index=True)
     with tab7:
-        render_futures_config(config)
+        render_strategy_editor(strategy_store)
     with tab8:
+        render_trade_config(config)
+    with tab9:
+        render_futures_config(config)
+    with tab10:
         st.subheader("API 认证检测")
         st.caption("只调用账户查询接口，不会下单。用于判断 Key、Secret、IP 白名单和权限是否有效。")
         if st.button("检测 API 认证", type="primary"):
@@ -834,7 +842,7 @@ def main() -> None:
             else:
                 st.error("API 认证失败。")
             st.json(result)
-    with tab9:
+    with tab11:
         st.code(json.dumps(config, ensure_ascii=False, indent=2), language="json")
         st.info(
             "真实下单需要同时满足：config.yaml 中 trade_mode=live，.env 中 ENABLE_LIVE_TRADING=true，"

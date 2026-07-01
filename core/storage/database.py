@@ -115,6 +115,51 @@ class Database:
                     partial_state text not null,
                     raw text not null
                 );
+
+                create table if not exists trade_journal (
+                    id integer primary key autoincrement,
+                    created_at text not null,
+                    updated_at text not null,
+                    status text not null,
+                    symbol text not null,
+                    market_type text not null,
+                    direction text not null,
+                    strategy_id text,
+                    strategy_name text,
+                    strategy_family text,
+                    direction_mode text,
+                    opened_at text,
+                    closed_at text,
+                    amount real,
+                    remaining_amount real,
+                    entry_price real,
+                    avg_exit_price real,
+                    initial_stop real,
+                    final_stop real,
+                    realized_pnl real default 0,
+                    fee real default 0,
+                    r_multiple real,
+                    result text,
+                    exit_reason text,
+                    signal_details text not null,
+                    exit_plan text not null,
+                    partial_state text not null,
+                    market_context text not null,
+                    raw text not null,
+                    ai_review_notes text
+                );
+
+                create table if not exists trade_events (
+                    id integer primary key autoincrement,
+                    created_at text not null,
+                    trade_id integer,
+                    symbol text not null,
+                    event_type text not null,
+                    price real,
+                    amount real,
+                    message text,
+                    details text not null
+                );
                 """
             )
 
@@ -191,7 +236,7 @@ class Database:
             return str(row["value"]) if row else default
 
     def recent_rows(self, table: str, limit: int = 50) -> list[sqlite3.Row]:
-        allowed = {"signals", "orders", "trades", "risk_events", "bot_state", "active_positions"}
+        allowed = {"signals", "orders", "trades", "risk_events", "bot_state", "active_positions", "trade_journal", "trade_events"}
         if table not in allowed:
             raise ValueError(f"unsupported table: {table}")
         with self.connect() as conn:
@@ -233,6 +278,106 @@ class Database:
                 ),
             )
             return int(cur.lastrowid)
+
+    def create_trade_journal(self, journal: dict[str, Any]) -> int:
+        with self.connect() as conn:
+            cur = conn.execute(
+                """
+                insert into trade_journal (
+                    created_at, updated_at, status, symbol, market_type, direction,
+                    strategy_id, strategy_name, strategy_family, direction_mode,
+                    opened_at, amount, remaining_amount, entry_price, initial_stop,
+                    final_stop, signal_details, exit_plan, partial_state, market_context, raw
+                ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    utc_now(),
+                    utc_now(),
+                    journal.get("status", "open"),
+                    journal["symbol"],
+                    journal["market_type"],
+                    journal["direction"],
+                    journal.get("strategy_id"),
+                    journal.get("strategy_name"),
+                    journal.get("strategy_family"),
+                    journal.get("direction_mode"),
+                    journal.get("opened_at", utc_now()),
+                    journal.get("amount"),
+                    journal.get("remaining_amount", journal.get("amount")),
+                    journal.get("entry_price"),
+                    journal.get("initial_stop"),
+                    journal.get("final_stop", journal.get("initial_stop")),
+                    json.dumps(journal.get("signal_details", {}), ensure_ascii=False, default=json_default),
+                    json.dumps(journal.get("exit_plan", {}), ensure_ascii=False, default=json_default),
+                    json.dumps(journal.get("partial_state", {}), ensure_ascii=False, default=json_default),
+                    json.dumps(journal.get("market_context", {}), ensure_ascii=False, default=json_default),
+                    json.dumps(journal.get("raw", {}), ensure_ascii=False, default=json_default),
+                ),
+            )
+            return int(cur.lastrowid)
+
+    def update_trade_journal(self, trade_id: int, updates: dict[str, Any]) -> None:
+        allowed = {
+            "status",
+            "closed_at",
+            "remaining_amount",
+            "avg_exit_price",
+            "final_stop",
+            "realized_pnl",
+            "fee",
+            "r_multiple",
+            "result",
+            "exit_reason",
+            "partial_state",
+            "raw",
+            "ai_review_notes",
+        }
+        assignments = []
+        values: list[Any] = []
+        for key, value in updates.items():
+            if key not in allowed:
+                continue
+            assignments.append(f"{key} = ?")
+            if key in {"partial_state", "raw"}:
+                values.append(json.dumps(value, ensure_ascii=False, default=json_default))
+            else:
+                values.append(value)
+        if not assignments:
+            return
+        assignments.append("updated_at = ?")
+        values.append(utc_now())
+        values.append(trade_id)
+        with self.connect() as conn:
+            conn.execute(f"update trade_journal set {', '.join(assignments)} where id = ?", values)
+
+    def insert_trade_event(
+        self,
+        event_type: str,
+        symbol: str,
+        trade_id: int | None = None,
+        price: float | None = None,
+        amount: float | None = None,
+        message: str | None = None,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        with self.connect() as conn:
+            conn.execute(
+                """
+                insert into trade_events (
+                    created_at, trade_id, symbol, event_type, price, amount, message, details
+                ) values (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    utc_now(),
+                    trade_id,
+                    symbol,
+                    event_type,
+                    price,
+                    amount,
+                    message,
+                    json.dumps(details or {}, ensure_ascii=False, default=json_default),
+                ),
+            )
 
     def update_active_position(self, position_id: int, updates: dict[str, Any]) -> None:
         allowed = {

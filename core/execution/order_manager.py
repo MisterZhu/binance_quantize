@@ -154,13 +154,46 @@ class OrderManager:
             price = float(signal["entry_price"])
 
         raw = self.client.create_order(signal["symbol"], side, order_type, amount, price, params)
+        self.db.insert_trade_event(
+            "entry_submitted",
+            signal["symbol"],
+            price=price,
+            amount=amount,
+            message="entry order submitted",
+            details={"signal": signal, "order": raw},
+        )
         exit_plan = build_exit_plan(self.config, direction, float(signal["entry_price"]), float(signal["stop_loss"]))
         entry_order = raw
         protective_stop: dict[str, Any] | None = None
         try:
             entry_order, filled_amount = self._wait_for_entry_fill(raw, signal["symbol"], amount)
+            self.db.insert_trade_event(
+                "entry_filled",
+                signal["symbol"],
+                price=float(signal["entry_price"]),
+                amount=filled_amount,
+                message="entry order filled",
+                details={"entry_order": entry_order},
+            )
             protective_stop = self._create_protective_stop(signal, filled_amount)
+            self.db.insert_trade_event(
+                "protective_stop_placed",
+                signal["symbol"],
+                price=float(signal["stop_loss"]),
+                amount=filled_amount,
+                message="protective stop placed",
+                details={"protective_stop": protective_stop},
+            )
             partial_orders = self._create_partial_take_profit_orders(signal, filled_amount, exit_plan)
+            for partial_order in partial_orders:
+                self.db.insert_trade_event(
+                    "partial_take_profit_placed",
+                    signal["symbol"],
+                    price=float(partial_order["price"]) if partial_order.get("price") is not None else None,
+                    amount=float(partial_order["amount"]),
+                    message="partial take profit placed",
+                    details=partial_order,
+                )
         except Exception as exc:
             self.db.insert_risk_event(
                 "critical",
@@ -175,6 +208,71 @@ class OrderManager:
                 "orders": partial_orders,
                 "filled_targets": [],
             }
+            active_strategy = self.config.get("active_strategy", {})
+            strategy = self.config.get("strategy", {})
+            trade_id = self.db.create_trade_journal(
+                {
+                    "status": "open",
+                    "symbol": signal["symbol"],
+                    "market_type": market_type,
+                    "direction": direction,
+                    "strategy_id": active_strategy.get("id"),
+                    "strategy_name": active_strategy.get("name"),
+                    "strategy_family": strategy.get("family"),
+                    "direction_mode": strategy.get("direction_mode"),
+                    "amount": filled_amount,
+                    "remaining_amount": filled_amount,
+                    "entry_price": float(signal["entry_price"]),
+                    "initial_stop": float(signal["stop_loss"]),
+                    "final_stop": float(signal["stop_loss"]),
+                    "signal_details": signal.get("details", {}),
+                    "exit_plan": exit_plan.__dict__,
+                    "partial_state": partial_state,
+                    "market_context": {
+                        "score": signal.get("score"),
+                        "rr": signal.get("rr"),
+                        "take_profit": signal.get("take_profit"),
+                    },
+                    "raw": {"entry_order": entry_order, "protective_stop": protective_stop, "partial_orders": partial_orders},
+                }
+            )
+            self.db.insert_trade_event(
+                "journal_opened",
+                signal["symbol"],
+                trade_id=trade_id,
+                price=float(signal["entry_price"]),
+                amount=filled_amount,
+                message="trade journal opened",
+                details={"strategy": active_strategy, "family": strategy.get("family")},
+            )
+            self.db.insert_trade_event(
+                "entry_filled",
+                signal["symbol"],
+                trade_id=trade_id,
+                price=float(signal["entry_price"]),
+                amount=filled_amount,
+                message="entry order filled",
+                details={"entry_order": entry_order},
+            )
+            self.db.insert_trade_event(
+                "protective_stop_placed",
+                signal["symbol"],
+                trade_id=trade_id,
+                price=float(signal["stop_loss"]),
+                amount=filled_amount,
+                message="protective stop placed",
+                details={"protective_stop": protective_stop},
+            )
+            for partial_order in partial_orders:
+                self.db.insert_trade_event(
+                    "partial_take_profit_placed",
+                    signal["symbol"],
+                    trade_id=trade_id,
+                    price=float(partial_order["price"]) if partial_order.get("price") is not None else None,
+                    amount=float(partial_order["amount"]),
+                    message="partial take profit placed",
+                    details=partial_order,
+                )
             self.db.upsert_active_position(
                 {
                     "status": "open",
@@ -190,7 +288,7 @@ class OrderManager:
                     "stop_order_id": protective_stop.get("exchange_order_id") if protective_stop else None,
                     "exit_plan": exit_plan.__dict__,
                     "partial_state": partial_state,
-                    "raw": {"entry_order": entry_order, "protective_stop": protective_stop},
+                    "raw": {"trade_id": trade_id, "entry_order": entry_order, "protective_stop": protective_stop},
                 }
             )
         record = {

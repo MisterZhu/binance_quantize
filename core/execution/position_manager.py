@@ -5,7 +5,7 @@ from typing import Any
 
 from core.exchange.client import BinanceClient
 from core.execution.exit_manager import ema_follow_exit, structure_exit, trailing_stop_price
-from core.storage.database import Database
+from core.storage.database import Database, utc_now
 
 
 class PositionManager:
@@ -76,6 +76,75 @@ class PositionManager:
             return candidate_stop > current_stop
         return candidate_stop < current_stop
 
+    def _row_raw(self, row: Any) -> dict[str, Any]:
+        raw = row["raw"]
+        if isinstance(raw, str):
+            try:
+                return json.loads(raw)
+            except json.JSONDecodeError:
+                return {}
+        return raw or {}
+
+    def _trade_id(self, row: Any) -> int | None:
+        raw = self._row_raw(row)
+        trade_id = raw.get("trade_id")
+        return int(trade_id) if trade_id else None
+
+    def _estimated_pnl(self, direction: str, entry: float, exit_price: float, amount: float) -> float:
+        if direction == "long":
+            return (exit_price - entry) * amount
+        return (entry - exit_price) * amount
+
+    def _r_multiple(self, direction: str, entry: float, stop: float, exit_price: float) -> float | None:
+        risk = abs(entry - stop)
+        if risk <= 0:
+            return None
+        if direction == "long":
+            return (exit_price - entry) / risk
+        return (entry - exit_price) / risk
+
+    def _close_journal(
+        self,
+        row: Any,
+        exit_price: float,
+        amount: float,
+        exit_reason: str,
+        raw_details: dict[str, Any] | None = None,
+    ) -> None:
+        trade_id = self._trade_id(row)
+        if not trade_id:
+            return
+        direction = row["direction"]
+        entry = float(row["entry_price"])
+        initial_stop = float(row["stop_loss"])
+        pnl = self._estimated_pnl(direction, entry, exit_price, amount)
+        r_multiple = self._r_multiple(direction, entry, initial_stop, exit_price)
+        result = "win" if pnl > 0 else ("loss" if pnl < 0 else "breakeven")
+        self.db.update_trade_journal(
+            trade_id,
+            {
+                "status": "closed",
+                "closed_at": utc_now(),
+                "remaining_amount": 0,
+                "avg_exit_price": exit_price,
+                "final_stop": float(row["current_stop"]),
+                "realized_pnl": pnl,
+                "r_multiple": r_multiple,
+                "result": result,
+                "exit_reason": exit_reason,
+                "raw": {**self._row_raw(row), "close": raw_details or {}},
+            },
+        )
+        self.db.insert_trade_event(
+            "trade_closed",
+            row["symbol"],
+            trade_id=trade_id,
+            price=exit_price,
+            amount=amount,
+            message=f"trade closed: {exit_reason}",
+            details={"pnl": pnl, "r_multiple": r_multiple, "result": result, **(raw_details or {})},
+        )
+
     def _exit_timeframe(self) -> str:
         strategy_timeframes = self.config["strategy"]["timeframes"]
         trailing = self.config.get("exit", {}).get("trailing_stop", {})
@@ -100,6 +169,8 @@ class PositionManager:
 
         exchange_remaining = self._position_contracts(symbol, direction)
         if exchange_remaining <= 0:
+            exit_price = self._last_price(symbol)
+            self._close_journal(row, exit_price, remaining, "position_closed_on_exchange")
             self.db.update_active_position(position_id, {"status": "closed", "remaining_amount": 0})
             self.db.insert_risk_event("info", "position_closed", "active position closed", {"symbol": symbol})
             return True
@@ -107,6 +178,17 @@ class PositionManager:
         if abs(exchange_remaining - remaining) > 0:
             remaining = exchange_remaining
             self.db.update_active_position(position_id, {"remaining_amount": remaining})
+            trade_id = self._trade_id(row)
+            if trade_id:
+                self.db.update_trade_journal(trade_id, {"remaining_amount": remaining})
+                self.db.insert_trade_event(
+                    "position_size_changed",
+                    symbol,
+                    trade_id=trade_id,
+                    amount=remaining,
+                    message="exchange position size changed",
+                    details={"previous_remaining": float(row["remaining_amount"]), "exchange_remaining": remaining},
+                )
 
         exit_rows = self.client.fetch_ohlcv(symbol, self._exit_timeframe(), limit=120)
         should_close = ema_follow_exit(self.config, direction, exit_rows) or structure_exit(self.config, direction, exit_rows)
@@ -127,6 +209,7 @@ class PositionManager:
                 }
             )
             self.db.update_active_position(position_id, {"status": "closing"})
+            self._close_journal(row, self._last_price(symbol), remaining, "trailing_exit_rule", {"exit_order": raw})
             return True
 
         current_price = self._last_price(symbol)
@@ -144,4 +227,16 @@ class PositionManager:
                     "raw": raw,
                 },
             )
+            trade_id = self._trade_id(row)
+            if trade_id:
+                self.db.update_trade_journal(trade_id, {"final_stop": candidate_stop, "raw": raw})
+                self.db.insert_trade_event(
+                    "trailing_stop_updated",
+                    symbol,
+                    trade_id=trade_id,
+                    price=candidate_stop,
+                    amount=remaining,
+                    message="trailing stop updated",
+                    details=stop_record,
+                )
         return True
