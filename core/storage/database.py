@@ -23,6 +23,8 @@ def json_default(value: Any) -> Any:
 
 
 class Database:
+    """SQLite 存储层，统一记录信号、订单、持仓、复盘和风控事件。"""
+
     def __init__(self, path: Path | str = DB_PATH) -> None:
         self.path = Path(path)
         self.path.parent.mkdir(exist_ok=True)

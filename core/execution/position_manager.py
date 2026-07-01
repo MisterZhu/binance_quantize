@@ -9,6 +9,8 @@ from core.storage.database import Database, utc_now
 
 
 class PositionManager:
+    """持仓管理器，负责同步交易所仓位并执行移动止损或规则离场。"""
+
     def __init__(self, config: dict[str, Any], client: BinanceClient, db: Database) -> None:
         self.config = config
         self.client = client

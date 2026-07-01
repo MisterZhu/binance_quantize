@@ -9,6 +9,8 @@ from core.storage.database import Database
 
 
 class OrderManager:
+    """开仓执行器，负责入场成交、保护止损、分批止盈和交易记录。"""
+
     def __init__(self, config: dict[str, Any], client: BinanceClient, db: Database) -> None:
         self.config = config
         self.client = client

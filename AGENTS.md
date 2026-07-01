@@ -41,6 +41,8 @@ Read these files before making code changes:
 8. `config.yaml`
 
 For task-specific work, also read the relevant files under `.trellis/spec/`.
+Before changing business logic, read `docs/technical_design.md` sections
+`模块与核心类说明`, `关键调用链路`, and `修改风险提示`.
 
 ## Project Goal
 

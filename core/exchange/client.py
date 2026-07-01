@@ -10,6 +10,8 @@ from loguru import logger
 
 
 class BinanceClient:
+    """Binance 访问层，统一封装行情、账户、持仓和下单能力。"""
+
     def __init__(self, config: dict[str, Any]) -> None:
         load_dotenv()
         self.config = config

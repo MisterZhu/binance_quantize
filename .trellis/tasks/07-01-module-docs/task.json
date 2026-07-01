@@ -1,0 +1,53 @@
+{
+  "id": "module-docs",
+  "name": "module-docs",
+  "title": "Document module responsibilities",
+  "description": "",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "mister_zhu",
+  "assignee": "mister_zhu",
+  "createdAt": "2026-07-01",
+  "completedAt": "2026-07-01",
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "current_phase": 6,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "brainstorm"
+    },
+    {
+      "phase": 2,
+      "action": "research"
+    },
+    {
+      "phase": 3,
+      "action": "implement"
+    },
+    {
+      "phase": 4,
+      "action": "check"
+    },
+    {
+      "phase": 5,
+      "action": "update-spec"
+    },
+    {
+      "phase": 6,
+      "action": "record-session"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "Expanded the technical design with module responsibilities, core class descriptions, key call chains, and modification risk notes. Added AGENTS.md reading guidance and concise Chinese class docstrings for core business classes.",
+  "meta": {}
+}

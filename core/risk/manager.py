@@ -8,12 +8,16 @@ from core.storage.database import Database
 
 @dataclass
 class RiskDecision:
+    """风控决策结果，包含是否允许开仓和最终下单数量。"""
+
     allowed: bool
     reason: str
     amount: float = 0.0
 
 
 class RiskManager:
+    """下单前硬性风控，负责过滤信号并按止损距离计算仓位。"""
+
     def __init__(self, config: dict[str, Any], db: Database) -> None:
         self.config = config
         self.db = db

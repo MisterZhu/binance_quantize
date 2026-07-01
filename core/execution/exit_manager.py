@@ -11,6 +11,8 @@ from core.strategy.support_resistance import analyze_levels
 
 @dataclass
 class ExitPlan:
+    """退出计划，记录初始止损、分批止盈目标和移动止损规则。"""
+
     stop_loss: float
     partial_targets: list[dict[str, float]]
     exit_rules: dict[str, Any]

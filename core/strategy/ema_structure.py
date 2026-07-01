@@ -19,6 +19,8 @@ from core.strategy.support_resistance import (
 
 @dataclass
 class Signal:
+    """策略信号结果；只表达交易意图，不直接触发下单。"""
+
     symbol: str
     market_type: str
     direction: str
@@ -34,6 +36,8 @@ class Signal:
 
 
 class EmaStructureStrategy:
+    """多周期策略引擎，根据策略大类生成 checklist 和候选交易信号。"""
+
     def __init__(self, config: dict[str, Any]) -> None:
         self.config = config
         strategy = config["strategy"]
