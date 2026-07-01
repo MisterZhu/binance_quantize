@@ -47,22 +47,6 @@ def checks_to_df(checks: dict) -> pd.DataFrame:
     )
 
 
-def regime_summary(regime: dict | None) -> str:
-    if not regime:
-        return "无行情状态数据"
-    labels = {
-        "uptrend": "上涨趋势",
-        "downtrend": "下跌趋势",
-        "range": "震荡",
-        "mixed": "混合/不明确",
-    }
-    name = labels.get(str(regime.get("regime")), str(regime.get("regime", "unknown")))
-    allow_long = "允许做多" if regime.get("allow_long") else "禁止做多"
-    allow_short = "允许做空" if regime.get("allow_short") else "禁止做空"
-    enabled = "启用" if regime.get("enabled") else "关闭"
-    return f"{enabled} | {name} | {allow_long} | {allow_short}"
-
-
 def render_signal_checklist(df: pd.DataFrame) -> None:
     if df.empty or "details" not in df.columns:
         return
@@ -70,8 +54,6 @@ def render_signal_checklist(df: pd.DataFrame) -> None:
     row = df[df["id"] == selected_id].iloc[0]
     details = json.loads(row["details"]) if isinstance(row["details"], str) else row["details"]
     direction = row.get("direction", "none")
-    regime = details.get("market_regime")
-    st.info(f"行情状态过滤：{regime_summary(regime)}")
     st.caption(f"当前信号方向：{direction}")
 
     if direction == "long":
@@ -91,7 +73,6 @@ def render_signal_checklist(df: pd.DataFrame) -> None:
             st.dataframe(checks_to_df(details.get("active_short_checks") or details.get("short_checks", {})), use_container_width=True, hide_index=True)
     st.json(
         {
-            "market_regime": regime,
             "structure": details.get("structure"),
             "trend_support": details.get("trend_support"),
             "trend_resistance": details.get("trend_resistance"),
@@ -343,15 +324,6 @@ def render_strategy_editor(store: dict) -> None:
         level_tolerance_pct = p13.number_input("支撑压力容差 %", min_value=0.01, max_value=2.0, value=float(strategy_params.get("level_tolerance_pct", 0.15)), step=0.01)
         min_check_score = p14.number_input("最小打勾比例", min_value=0.5, max_value=1.0, value=float(strategy_params.get("min_check_score", 0.85)), step=0.01)
 
-        st.subheader("行情状态过滤")
-        regime_config = strategy_params.get("market_regime", {})
-        r1, r2, r3, r4 = st.columns(4)
-        regime_enabled = r1.checkbox("启用过滤", value=bool(regime_config.get("enabled", True)))
-        block_countertrend = r2.checkbox("阻止逆势开仓", value=bool(regime_config.get("block_countertrend", True)))
-        block_range_entries = r3.checkbox("震荡/混合时不开仓", value=bool(regime_config.get("block_range_entries", False)))
-        require_structure_alignment = r4.checkbox("要求结构同向", value=bool(regime_config.get("require_structure_alignment", True)))
-        st.caption("基于趋势周期判断：价格相对 EMA200、EMA21 方向、HH/HL 或 LL/LH 结构。用于先判断大环境，再决定是否允许做多/做空。")
-
         st.subheader("入场条件开关")
         lc1, lc2 = st.columns(2)
         long_enabled: dict[str, bool] = {}
@@ -476,12 +448,6 @@ def render_strategy_editor(store: dict) -> None:
             "pullback_lookback": int(pullback_lookback),
             "level_tolerance_pct": float(level_tolerance_pct),
             "min_check_score": float(min_check_score),
-            "market_regime": {
-                "enabled": bool(regime_enabled),
-                "block_countertrend": bool(block_countertrend),
-                "block_range_entries": bool(block_range_entries),
-                "require_structure_alignment": bool(require_structure_alignment),
-            },
             "enabled_long_checks": long_enabled,
             "enabled_short_checks": short_enabled,
             },
@@ -686,14 +652,6 @@ def main() -> None:
 
     active_strategy = config.get("active_strategy", {})
     st.caption(f"当前策略：{active_strategy.get('name', '未设置')}")
-    regime_config = config.get("strategy", {}).get("market_regime", {})
-    st.caption(
-        "行情状态过滤："
-        f"{'启用' if regime_config.get('enabled') else '关闭'} / "
-        f"{'阻止逆势' if regime_config.get('block_countertrend') else '允许逆势'} / "
-        f"{'震荡不开仓' if regime_config.get('block_range_entries') else '震荡不强制过滤'} / "
-        f"{'要求结构同向' if regime_config.get('require_structure_alignment') else '不要求结构同向'}"
-    )
 
     if last_error:
         st.error(last_error)

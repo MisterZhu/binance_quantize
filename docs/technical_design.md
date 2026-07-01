@@ -124,15 +124,6 @@ exchange:
 
 负责多周期行情准备、做多/做空 checklist、按启用检查项计算 score、生成 signal、计算结构止损和 RR。
 
-策略引擎先从趋势周期生成 `market_regime`：
-
-- `uptrend`: 价格在 EMA200 上方、EMA21 向上，且结构同向
-- `downtrend`: 价格在 EMA200 下方、EMA21 向下，且结构同向
-- `range`: 结构为震荡
-- `mixed`: 条件不一致
-
-启用 `strategy.market_regime.block_countertrend` 后，下跌趋势会阻止做多，上涨趋势会阻止做空。启用 `block_range_entries` 后，震荡和混合状态不允许新开仓。
-
 ## 7. 风控模块
 
 入口：

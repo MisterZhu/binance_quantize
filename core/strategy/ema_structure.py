@@ -49,7 +49,6 @@ class EmaStructureStrategy:
         self.pullback_lookback = int(strategy.get("pullback_lookback", 8))
         self.level_tolerance_pct = float(strategy.get("level_tolerance_pct", 0.15)) / 100
         self.min_check_score = float(strategy.get("min_check_score", 0.85))
-        self.market_regime = strategy.get("market_regime", {})
         self.enabled_long_checks = strategy.get("enabled_long_checks", {})
         self.enabled_short_checks = strategy.get("enabled_short_checks", {})
         self.stop_loss_pct = float(config["execution"]["stop_loss_pct"]) / 100
@@ -57,50 +56,6 @@ class EmaStructureStrategy:
 
     def prepare(self, rows: list[list[float]]) -> pd.DataFrame:
         return add_emas(ohlcv_to_df(rows), (self.ema_fast, self.ema_mid, self.ema_slow))
-
-    def classify_regime(self, last_trend: pd.Series, structure: str, ema_mid_up: bool) -> dict[str, Any]:
-        enabled = bool(self.market_regime.get("enabled", True))
-        price_above_slow = bool(last_trend["close"] > last_trend[f"ema{self.ema_slow}"])
-        price_below_slow = bool(last_trend["close"] < last_trend[f"ema{self.ema_slow}"])
-        require_structure = bool(self.market_regime.get("require_structure_alignment", True))
-        up_structure_ok = structure == "up" or not require_structure
-        down_structure_ok = structure == "down" or not require_structure
-
-        if price_above_slow and ema_mid_up and up_structure_ok:
-            regime = "uptrend"
-        elif price_below_slow and not ema_mid_up and down_structure_ok:
-            regime = "downtrend"
-        elif structure == "range":
-            regime = "range"
-        else:
-            regime = "mixed"
-
-        block_countertrend = bool(self.market_regime.get("block_countertrend", True))
-        block_range_entries = bool(self.market_regime.get("block_range_entries", False))
-        allow_long = True
-        allow_short = True
-        if enabled and block_countertrend:
-            if regime == "downtrend":
-                allow_long = False
-            elif regime == "uptrend":
-                allow_short = False
-        if enabled and block_range_entries and regime in {"range", "mixed"}:
-            allow_long = False
-            allow_short = False
-
-        return {
-            "enabled": enabled,
-            "regime": regime,
-            "allow_long": allow_long,
-            "allow_short": allow_short,
-            "price_above_ema200": price_above_slow,
-            "price_below_ema200": price_below_slow,
-            "ema21_up": ema_mid_up,
-            "structure": structure,
-            "block_countertrend": block_countertrend,
-            "block_range_entries": block_range_entries,
-            "require_structure_alignment": require_structure,
-        }
 
     def analyze(
         self,
@@ -120,7 +75,6 @@ class EmaStructureStrategy:
         entry_levels = analyze_levels(entry, self.swing_window, max(12, self.structure_lookback * 2))
         structure = trend_levels.structure
         trend_ema_mid_up = ema_slope_up(trend, f"ema{self.ema_mid}")
-        regime = self.classify_regime(last_trend, structure, trend_ema_mid_up)
         price = float(last_entry["close"])
         long_stop = float(entry_levels.support or price * (1 - self.stop_loss_pct))
         short_stop = float(entry_levels.resistance or price * (1 + self.stop_loss_pct))
@@ -159,10 +113,6 @@ class EmaStructureStrategy:
         active_short_checks = {k: v for k, v in short_checks.items() if self.enabled_short_checks.get(k, True)}
         long_score = sum(bool(v) for v in active_long_checks.values()) / max(len(active_long_checks), 1)
         short_score = sum(bool(v) for v in active_short_checks.values()) / max(len(active_short_checks), 1) if allow_short else 0
-        if not regime["allow_long"]:
-            long_score = 0
-        if not regime["allow_short"]:
-            short_score = 0
 
         if long_score >= short_score:
             direction = "long" if long_score >= self.min_check_score else "none"
@@ -196,7 +146,6 @@ class EmaStructureStrategy:
             rr=round(float(rr), 4) if rr else None,
             details={
                 "structure": structure,
-                "market_regime": regime,
                 "trend_support": trend_levels.support,
                 "trend_resistance": trend_levels.resistance,
                 "entry_support": entry_levels.support,
