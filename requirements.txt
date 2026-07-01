@@ -1,0 +1,9 @@
+streamlit>=1.36
+ccxt>=4.3
+cryptography==45.0.7
+pandas>=2.2
+numpy>=1.26
+plotly>=5.22
+PyYAML>=6.0
+python-dotenv>=1.0
+loguru>=0.7

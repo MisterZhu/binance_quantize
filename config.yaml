@@ -1,0 +1,63 @@
+exchange:
+  name: binance
+  market_type: futures
+  trade_mode: live
+  sandbox: false
+  proxy:
+    enabled: true
+    url: http://127.0.0.1:7897
+
+symbols:
+  - BTC/USDT
+  - ETH/USDT
+
+strategy:
+  timeframes:
+    trend: 1h
+    confirm: 15m
+    entry: 5m
+  ema_fast: 9
+  ema_mid: 21
+  ema_slow: 200
+  min_rr: 2.0
+  volume_window: 20
+  volume_multiplier: 1.3
+  structure_lookback: 5
+
+risk:
+  risk_per_trade_pct: 0.25
+  daily_loss_limit_pct: 1.0
+  max_consecutive_losses: 3
+  max_open_positions: 1
+  max_position_usdt: 50
+  require_stop_loss: true
+
+futures:
+  enabled: true
+  allow_short: false
+  leverage: 1
+  max_leverage: 1
+  margin_mode: isolated
+  max_notional_usdt: 50
+  require_reduce_only_close: true
+  require_protective_stop: true
+  min_liquidation_buffer_pct: 5.0
+
+execution:
+  order_type: limit
+  market_order_allowed: false
+  price_offset_pct: 0.02
+  stop_loss_pct: 0.6
+  take_profit_pct: 1.2
+  protective_stop:
+    enabled: true
+    required: true
+    wait_entry_fill_seconds: 20
+    cancel_unfilled_entry: true
+    futures_type: stop_market
+
+api_limits:
+  weight_soft_limit_pct: 80
+  weight_hard_limit_pct: 90
+  max_retries: 3
+  retry_backoff_seconds: 1.0

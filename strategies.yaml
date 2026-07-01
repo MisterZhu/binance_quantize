@@ -1,0 +1,134 @@
+active_strategy: ai_futures_structure_breakout
+strategies:
+  - id: ai_futures_structure_breakout
+    name: AI推荐-合约结构突破回踩
+    builtin: true
+    editable: false
+    description: 合约默认策略，按多周期趋势、HH/HL或LL/LH、支撑压力、突破回踩、成交量和结构盈亏比逐项检查；未替代本地回测验证。
+    params:
+      strategy:
+        timeframes:
+          trend: 1h
+          confirm: 15m
+          entry: 5m
+        ema_fast: 9
+        ema_mid: 21
+        ema_slow: 200
+        min_rr: 2.0
+        volume_window: 20
+        volume_multiplier: 1.3
+        structure_lookback: 6
+        swing_window: 2
+        breakout_lookback: 6
+        pullback_lookback: 8
+        level_tolerance_pct: 0.15
+        min_check_score: 0.85
+        enabled_long_checks:
+          1h_price_above_ema200: true
+          1h_ema21_up: true
+          1h_hh_hl_structure: true
+          1h_profit_space_to_resistance: true
+          15m_ema9_above_ema21: true
+          15m_ema21_up: true
+          15m_volume_expanded: true
+          5m_breakout_resistance: true
+          5m_first_pullback_holds: true
+          combined_stop_less_than_half_target: true
+        enabled_short_checks:
+          1h_price_below_ema200: true
+          1h_ema21_down: true
+          1h_ll_lh_structure: true
+          1h_profit_space_to_support: true
+          15m_ema9_below_ema21: true
+          15m_ema21_down: true
+          15m_volume_expanded: true
+          5m_breakdown_support: true
+          5m_pullback_rejects_support_as_resistance: true
+          combined_stop_less_than_half_target: true
+      execution:
+        order_type: limit
+        market_order_allowed: false
+        price_offset_pct: 0.02
+        stop_loss_pct: 0.6
+        take_profit_pct: 1.2
+      exit:
+        mode: partial_take_profit_with_trailing
+        partial_take_profit:
+          enabled: true
+          levels:
+            - r: 2.0
+              percent: 30
+            - r: 4.0
+              percent: 30
+          runner_percent: 40
+        trailing_stop:
+          enabled: true
+          method: swing
+          r_multiple:
+            breakeven_at_r: 2.0
+            trail_step_r: 2.0
+          ema:
+            timeframe: 15m
+            period: 21
+          swing:
+            window: 2
+          structure:
+            timeframe: 5m
+  - id: ai_futures_conservative
+    name: AI推荐-合约稳健
+    builtin: true
+    editable: false
+    description: 合约稳健模板，偏低频率、较严格成交量确认和更高盈亏比；未替代本地回测验证。
+    params:
+      strategy:
+        timeframes:
+          trend: 1h
+          confirm: 15m
+          entry: 5m
+        ema_fast: 9
+        ema_mid: 21
+        ema_slow: 200
+        min_rr: 2.5
+        volume_window: 24
+        volume_multiplier: 1.5
+        structure_lookback: 8
+        swing_window: 2
+        breakout_lookback: 6
+        pullback_lookback: 8
+        level_tolerance_pct: 0.15
+        min_check_score: 0.9
+      execution:
+        order_type: limit
+        market_order_allowed: false
+        price_offset_pct: 0.02
+        stop_loss_pct: 0.4
+        take_profit_pct: 1.0
+  - id: ai_futures_balanced
+    name: AI推荐-合约标准
+    builtin: true
+    editable: false
+    description: 合约标准模板，适合 1x 小额采样；做空仍需开启 allow_short；未替代本地回测验证。
+    params:
+      strategy:
+        timeframes:
+          trend: 1h
+          confirm: 15m
+          entry: 5m
+        ema_fast: 9
+        ema_mid: 21
+        ema_slow: 200
+        min_rr: 2.0
+        volume_window: 20
+        volume_multiplier: 1.3
+        structure_lookback: 5
+        swing_window: 2
+        breakout_lookback: 6
+        pullback_lookback: 8
+        level_tolerance_pct: 0.15
+        min_check_score: 0.85
+      execution:
+        order_type: limit
+        market_order_allowed: false
+        price_offset_pct: 0.02
+        stop_loss_pct: 0.5
+        take_profit_pct: 1.0

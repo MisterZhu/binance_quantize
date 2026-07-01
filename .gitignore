@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+data/*.sqlite
+data/runtime_strategy.yaml
+logs/*.log
+.DS_Store
+.trellis/.developer
+.trellis/.current-task
+.trellis/.ralph-state.json
+.trellis/.agents/
+.trellis/.agent-log
+.trellis/.session-id
+.trellis/**/*.tmp
+.trellis/**/__pycache__/
+.trellis/**/*.pyc
