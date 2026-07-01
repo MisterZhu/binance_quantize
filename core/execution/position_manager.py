@@ -76,6 +76,16 @@ class PositionManager:
             return candidate_stop > current_stop
         return candidate_stop < current_stop
 
+    def _exit_timeframe(self) -> str:
+        strategy_timeframes = self.config["strategy"]["timeframes"]
+        trailing = self.config.get("exit", {}).get("trailing_stop", {})
+        method = trailing.get("method")
+        if method == "ema":
+            return str(trailing.get("ema", {}).get("timeframe") or strategy_timeframes["entry"])
+        if method == "structure":
+            return str(trailing.get("structure", {}).get("timeframe") or strategy_timeframes["entry"])
+        return str(strategy_timeframes["entry"])
+
     def manage_active_position(self) -> bool:
         row = self.db.get_active_position()
         if not row:
@@ -98,9 +108,7 @@ class PositionManager:
             remaining = exchange_remaining
             self.db.update_active_position(position_id, {"remaining_amount": remaining})
 
-        timeframes = self.config["strategy"]["timeframes"]
-        entry_rows = self.client.fetch_ohlcv(symbol, timeframes["entry"], limit=120)
-        exit_rows = entry_rows
+        exit_rows = self.client.fetch_ohlcv(symbol, self._exit_timeframe(), limit=120)
         should_close = ema_follow_exit(self.config, direction, exit_rows) or structure_exit(self.config, direction, exit_rows)
         if should_close:
             side = self._close_side(direction)

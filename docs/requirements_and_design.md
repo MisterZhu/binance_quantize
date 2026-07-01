@@ -188,7 +188,7 @@ workingType=MARK_PRICE
 移动止损：
 
 - R 倍数移动：达到指定 R 后撤换保护止损。
-- EMA 跟随：价格破 EMA 后 reduceOnly 市价平仓。
+- EMA 跟随：价格破指定周期 EMA 后 reduceOnly 市价平仓，默认 15m EMA21，可在策略页手动切换。
 - 前低/前高跟随：结构破坏后 reduceOnly 市价平仓。
 - 结构位跟随：跌破或突破关键结构位后 reduceOnly 市价平仓。
 

@@ -225,6 +225,8 @@ exit:
 - 交易所仓位归零时标记本地仓位 `closed`
 - 根据交易所仓位更新 `remaining_amount`
 - EMA 跟随或结构离场触发 `reduceOnly` 市价平仓
+- EMA 跟随使用 `exit.trailing_stop.ema.timeframe` 读取 K 线，默认 15m
+- 结构离场使用 `exit.trailing_stop.structure.timeframe` 读取 K 线，默认 5m
 - R 倍数移动止损触发撤换旧 STOP_MARKET，再创建新的 STOP_MARKET
 - 有 active position 时阻止本轮扫描新入场
 
