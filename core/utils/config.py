@@ -84,11 +84,21 @@ def apply_active_strategy(config: dict[str, Any], store: dict[str, Any]) -> None
 
 def apply_strategy_params(config: dict[str, Any], params: dict[str, Any]) -> None:
     if "strategy" in params:
-        config["strategy"] = {**config.get("strategy", {}), **params["strategy"]}
+        config["strategy"] = deep_merge(config.get("strategy", {}), params["strategy"])
     if "execution" in params:
-        config["execution"] = {**config.get("execution", {}), **params["execution"]}
+        config["execution"] = deep_merge(config.get("execution", {}), params["execution"])
     if "exit" in params:
-        config["exit"] = {**config.get("exit", {}), **params["exit"]}
+        config["exit"] = deep_merge(config.get("exit", {}), params["exit"])
+
+
+def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    merged = dict(base)
+    for key, value in override.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = deep_merge(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
 
 
 def deep_get(data: dict[str, Any], dotted: str, default: Any = None) -> Any:

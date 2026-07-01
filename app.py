@@ -41,6 +41,28 @@ def rows_to_df(rows: list) -> pd.DataFrame:
     return pd.DataFrame([dict(row) for row in rows])
 
 
+def checks_to_df(checks: dict) -> pd.DataFrame:
+    return pd.DataFrame(
+        [{"检查项": CHECK_LABELS.get(key, key), "满足": "✅" if bool(value) else "□"} for key, value in checks.items()]
+    )
+
+
+def regime_summary(regime: dict | None) -> str:
+    if not regime:
+        return "无行情状态数据"
+    labels = {
+        "uptrend": "上涨趋势",
+        "downtrend": "下跌趋势",
+        "range": "震荡",
+        "mixed": "混合/不明确",
+    }
+    name = labels.get(str(regime.get("regime")), str(regime.get("regime", "unknown")))
+    allow_long = "允许做多" if regime.get("allow_long") else "禁止做多"
+    allow_short = "允许做空" if regime.get("allow_short") else "禁止做空"
+    enabled = "启用" if regime.get("enabled") else "关闭"
+    return f"{enabled} | {name} | {allow_long} | {allow_short}"
+
+
 def render_signal_checklist(df: pd.DataFrame) -> None:
     if df.empty or "details" not in df.columns:
         return
@@ -48,15 +70,28 @@ def render_signal_checklist(df: pd.DataFrame) -> None:
     row = df[df["id"] == selected_id].iloc[0]
     details = json.loads(row["details"]) if isinstance(row["details"], str) else row["details"]
     direction = row.get("direction", "none")
-    checks_key = "short_checks" if direction == "short" else "long_checks"
-    checks = details.get(checks_key, {})
-    checklist = pd.DataFrame(
-        [{"检查项": CHECK_LABELS.get(key, key), "满足": "✅" if bool(value) else "□"} for key, value in checks.items()]
-    )
-    st.dataframe(checklist, use_container_width=True, hide_index=True)
+    regime = details.get("market_regime")
+    st.info(f"行情状态过滤：{regime_summary(regime)}")
+    st.caption(f"当前信号方向：{direction}")
+
+    if direction == "long":
+        st.markdown("**做多检查清单**")
+        st.dataframe(checks_to_df(details.get("active_long_checks") or details.get("long_checks", {})), use_container_width=True, hide_index=True)
+    elif direction == "short":
+        st.markdown("**做空检查清单**")
+        st.dataframe(checks_to_df(details.get("active_short_checks") or details.get("short_checks", {})), use_container_width=True, hide_index=True)
+    else:
+        st.warning("当前没有触发入场方向。下面展示的是做多/做空候选检查清单，不代表系统准备开多。")
+        long_col, short_col = st.columns(2)
+        with long_col:
+            st.markdown("**做多候选检查**")
+            st.dataframe(checks_to_df(details.get("active_long_checks") or details.get("long_checks", {})), use_container_width=True, hide_index=True)
+        with short_col:
+            st.markdown("**做空候选检查**")
+            st.dataframe(checks_to_df(details.get("active_short_checks") or details.get("short_checks", {})), use_container_width=True, hide_index=True)
     st.json(
         {
-            "market_regime": details.get("market_regime"),
+            "market_regime": regime,
             "structure": details.get("structure"),
             "trend_support": details.get("trend_support"),
             "trend_resistance": details.get("trend_resistance"),
@@ -651,6 +686,14 @@ def main() -> None:
 
     active_strategy = config.get("active_strategy", {})
     st.caption(f"当前策略：{active_strategy.get('name', '未设置')}")
+    regime_config = config.get("strategy", {}).get("market_regime", {})
+    st.caption(
+        "行情状态过滤："
+        f"{'启用' if regime_config.get('enabled') else '关闭'} / "
+        f"{'阻止逆势' if regime_config.get('block_countertrend') else '允许逆势'} / "
+        f"{'震荡不开仓' if regime_config.get('block_range_entries') else '震荡不强制过滤'} / "
+        f"{'要求结构同向' if regime_config.get('require_structure_alignment') else '不要求结构同向'}"
+    )
 
     if last_error:
         st.error(last_error)
