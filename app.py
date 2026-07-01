@@ -56,6 +56,7 @@ def render_signal_checklist(df: pd.DataFrame) -> None:
     st.dataframe(checklist, use_container_width=True, hide_index=True)
     st.json(
         {
+            "market_regime": details.get("market_regime"),
             "structure": details.get("structure"),
             "trend_support": details.get("trend_support"),
             "trend_resistance": details.get("trend_resistance"),
@@ -307,6 +308,15 @@ def render_strategy_editor(store: dict) -> None:
         level_tolerance_pct = p13.number_input("支撑压力容差 %", min_value=0.01, max_value=2.0, value=float(strategy_params.get("level_tolerance_pct", 0.15)), step=0.01)
         min_check_score = p14.number_input("最小打勾比例", min_value=0.5, max_value=1.0, value=float(strategy_params.get("min_check_score", 0.85)), step=0.01)
 
+        st.subheader("行情状态过滤")
+        regime_config = strategy_params.get("market_regime", {})
+        r1, r2, r3, r4 = st.columns(4)
+        regime_enabled = r1.checkbox("启用过滤", value=bool(regime_config.get("enabled", True)))
+        block_countertrend = r2.checkbox("阻止逆势开仓", value=bool(regime_config.get("block_countertrend", True)))
+        block_range_entries = r3.checkbox("震荡/混合时不开仓", value=bool(regime_config.get("block_range_entries", False)))
+        require_structure_alignment = r4.checkbox("要求结构同向", value=bool(regime_config.get("require_structure_alignment", True)))
+        st.caption("基于趋势周期判断：价格相对 EMA200、EMA21 方向、HH/HL 或 LL/LH 结构。用于先判断大环境，再决定是否允许做多/做空。")
+
         st.subheader("入场条件开关")
         lc1, lc2 = st.columns(2)
         long_enabled: dict[str, bool] = {}
@@ -431,6 +441,12 @@ def render_strategy_editor(store: dict) -> None:
             "pullback_lookback": int(pullback_lookback),
             "level_tolerance_pct": float(level_tolerance_pct),
             "min_check_score": float(min_check_score),
+            "market_regime": {
+                "enabled": bool(regime_enabled),
+                "block_countertrend": bool(block_countertrend),
+                "block_range_entries": bool(block_range_entries),
+                "require_structure_alignment": bool(require_structure_alignment),
+            },
             "enabled_long_checks": long_enabled,
             "enabled_short_checks": short_enabled,
             },

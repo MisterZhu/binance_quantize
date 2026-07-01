@@ -23,6 +23,11 @@ strategies:
         pullback_lookback: 8
         level_tolerance_pct: 0.15
         min_check_score: 0.85
+        market_regime:
+          enabled: true
+          block_countertrend: true
+          block_range_entries: false
+          require_structure_alignment: true
         enabled_long_checks:
           1h_price_above_ema200: true
           1h_ema21_up: true
@@ -97,6 +102,11 @@ strategies:
         pullback_lookback: 8
         level_tolerance_pct: 0.15
         min_check_score: 0.9
+        market_regime:
+          enabled: true
+          block_countertrend: true
+          block_range_entries: true
+          require_structure_alignment: true
       execution:
         order_type: limit
         market_order_allowed: false
@@ -126,6 +136,11 @@ strategies:
         pullback_lookback: 8
         level_tolerance_pct: 0.15
         min_check_score: 0.85
+        market_regime:
+          enabled: true
+          block_countertrend: true
+          block_range_entries: false
+          require_structure_alignment: true
       execution:
         order_type: limit
         market_order_allowed: false
