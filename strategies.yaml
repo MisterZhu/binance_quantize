@@ -7,6 +7,8 @@ strategies:
     description: 合约默认策略，按多周期趋势、HH/HL或LL/LH、支撑压力、突破回踩、成交量和结构盈亏比逐项检查；未替代本地回测验证。
     params:
       strategy:
+        family: trend_breakout
+        direction_mode: both
         timeframes:
           trend: 1h
           confirm: 15m
@@ -81,6 +83,8 @@ strategies:
     description: 合约稳健模板，偏低频率、较严格成交量确认和更高盈亏比；未替代本地回测验证。
     params:
       strategy:
+        family: trend_breakout
+        direction_mode: both
         timeframes:
           trend: 1h
           confirm: 15m
@@ -110,6 +114,8 @@ strategies:
     description: 合约标准模板，适合 1x 小额采样；做空仍需开启 allow_short；未替代本地回测验证。
     params:
       strategy:
+        family: trend_breakout
+        direction_mode: both
         timeframes:
           trend: 1h
           confirm: 15m
@@ -132,3 +138,223 @@ strategies:
         price_offset_pct: 0.02
         stop_loss_pct: 0.5
         take_profit_pct: 1.0
+  - id: ai_downtrend_pullback_short
+    name: AI推荐-下跌趋势反弹空
+    builtin: true
+    editable: false
+    description: 趋势回调类策略；大趋势向下时等待反弹到压力、均线或VWAP附近，确认反弹失败后做空；未替代本地回测验证。
+    params:
+      strategy:
+        family: trend_pullback
+        direction_mode: short_only
+        timeframes:
+          trend: 4h
+          confirm: 1h
+          entry: 5m
+        ema_fast: 9
+        ema_mid: 21
+        ema_slow: 55
+        min_rr: 1.6
+        volume_window: 20
+        volume_multiplier: 1.2
+        structure_lookback: 8
+        swing_window: 2
+        breakout_lookback: 6
+        pullback_lookback: 8
+        level_tolerance_pct: 0.5
+        min_check_score: 0.8
+      execution:
+        order_type: limit
+        market_order_allowed: false
+        price_offset_pct: 0.02
+        stop_loss_pct: 0.8
+        take_profit_pct: 1.2
+      exit:
+        mode: partial_take_profit_with_trailing
+        partial_take_profit:
+          enabled: true
+          levels:
+            - r: 1.5
+              percent: 40
+            - r: 2.5
+              percent: 30
+          runner_percent: 30
+        trailing_stop:
+          enabled: true
+          method: ema
+          r_multiple:
+            breakeven_at_r: 1.5
+            trail_step_r: 1.0
+          ema:
+            timeframe: 15m
+            period: 21
+          swing:
+            window: 2
+          structure:
+            timeframe: 5m
+  - id: ai_uptrend_pullback_long
+    name: AI推荐-上升趋势回调多
+    builtin: true
+    editable: false
+    description: 趋势回调类策略；大趋势向上时等待回调到支撑、均线或VWAP附近，确认止跌后做多；未替代本地回测验证。
+    params:
+      strategy:
+        family: trend_pullback
+        direction_mode: long_only
+        timeframes:
+          trend: 4h
+          confirm: 1h
+          entry: 5m
+        ema_fast: 9
+        ema_mid: 21
+        ema_slow: 55
+        min_rr: 1.6
+        volume_window: 20
+        volume_multiplier: 1.2
+        structure_lookback: 8
+        swing_window: 2
+        breakout_lookback: 6
+        pullback_lookback: 8
+        level_tolerance_pct: 0.5
+        min_check_score: 0.8
+      execution:
+        order_type: limit
+        market_order_allowed: false
+        price_offset_pct: 0.02
+        stop_loss_pct: 0.8
+        take_profit_pct: 1.2
+      exit:
+        mode: partial_take_profit_with_trailing
+        partial_take_profit:
+          enabled: true
+          levels:
+            - r: 1.5
+              percent: 40
+            - r: 2.5
+              percent: 30
+          runner_percent: 30
+        trailing_stop:
+          enabled: true
+          method: ema
+          r_multiple:
+            breakeven_at_r: 1.5
+            trail_step_r: 1.0
+          ema:
+            timeframe: 15m
+            period: 21
+          swing:
+            window: 2
+          structure:
+            timeframe: 5m
+  - id: ai_intraday_vwap_atr_reversion_long
+    name: AI推荐-VWAP/ATR 日内回归多
+    builtin: true
+    editable: false
+    description: 日内波动回归类策略；价格明显低于VWAP并接近布林下轨，等待5分钟止跌后做多，目标回到VWAP或中位线；未替代本地回测验证。
+    params:
+      strategy:
+        family: intraday_mean_reversion
+        direction_mode: long_only
+        timeframes:
+          trend: 1h
+          confirm: 15m
+          entry: 5m
+        ema_fast: 9
+        ema_mid: 21
+        ema_slow: 55
+        min_rr: 1.3
+        volume_window: 20
+        volume_multiplier: 1.1
+        structure_lookback: 6
+        swing_window: 2
+        breakout_lookback: 6
+        pullback_lookback: 8
+        level_tolerance_pct: 0.4
+        min_check_score: 0.8
+        mean_reversion_min_vwap_deviation_pct: 0.6
+        mean_reversion_min_atr_pct: 0.8
+      execution:
+        order_type: limit
+        market_order_allowed: false
+        price_offset_pct: 0.02
+        stop_loss_pct: 0.7
+        take_profit_pct: 0.9
+      exit:
+        mode: partial_take_profit_with_trailing
+        partial_take_profit:
+          enabled: true
+          levels:
+            - r: 1.2
+              percent: 50
+            - r: 2.0
+              percent: 30
+          runner_percent: 20
+        trailing_stop:
+          enabled: true
+          method: r_multiple
+          r_multiple:
+            breakeven_at_r: 1.2
+            trail_step_r: 1.0
+          ema:
+            timeframe: 15m
+            period: 21
+          swing:
+            window: 2
+          structure:
+            timeframe: 5m
+  - id: ai_intraday_vwap_atr_reversion_short
+    name: AI推荐-VWAP/ATR 日内回归空
+    builtin: true
+    editable: false
+    description: 日内波动回归类策略；价格明显高于VWAP并接近布林上轨，等待5分钟冲高转弱后做空，目标回到VWAP或中位线；未替代本地回测验证。
+    params:
+      strategy:
+        family: intraday_mean_reversion
+        direction_mode: short_only
+        timeframes:
+          trend: 1h
+          confirm: 15m
+          entry: 5m
+        ema_fast: 9
+        ema_mid: 21
+        ema_slow: 55
+        min_rr: 1.3
+        volume_window: 20
+        volume_multiplier: 1.1
+        structure_lookback: 6
+        swing_window: 2
+        breakout_lookback: 6
+        pullback_lookback: 8
+        level_tolerance_pct: 0.4
+        min_check_score: 0.8
+        mean_reversion_min_vwap_deviation_pct: 0.6
+        mean_reversion_min_atr_pct: 0.8
+      execution:
+        order_type: limit
+        market_order_allowed: false
+        price_offset_pct: 0.02
+        stop_loss_pct: 0.7
+        take_profit_pct: 0.9
+      exit:
+        mode: partial_take_profit_with_trailing
+        partial_take_profit:
+          enabled: true
+          levels:
+            - r: 1.2
+              percent: 50
+            - r: 2.0
+              percent: 30
+          runner_percent: 20
+        trailing_stop:
+          enabled: true
+          method: r_multiple
+          r_multiple:
+            breakeven_at_r: 1.2
+            trail_step_r: 1.0
+          ema:
+            timeframe: 15m
+            period: 21
+          swing:
+            window: 2
+          structure:
+            timeframe: 5m

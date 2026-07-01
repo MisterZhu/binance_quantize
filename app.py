@@ -118,6 +118,38 @@ CHECK_LABELS = {
     "15m_ema21_down": "15分钟：EMA21 向下",
     "5m_breakdown_support": "5分钟：跌破关键支撑",
     "5m_pullback_rejects_support_as_resistance": "5分钟：反弹不过，支撑变压力",
+    "pullback_long_trend_up": "大周期：上升趋势成立",
+    "pullback_long_near_support_or_ema": "回调：接近支撑/均线/VWAP",
+    "pullback_long_entry_reclaims_ema9": "入场：重新站上 EMA9",
+    "pullback_long_confirm_ema21_not_down": "确认：EMA21 未转弱",
+    "pullback_long_rr_ok": "综合：回调多盈亏比满足",
+    "pullback_short_trend_down": "大周期：下跌趋势成立",
+    "pullback_short_near_resistance_or_ema": "反弹：接近压力/均线/VWAP",
+    "pullback_short_entry_loses_ema9": "入场：跌回 EMA9 下方",
+    "pullback_short_confirm_ema21_not_up": "确认：EMA21 未转强",
+    "pullback_short_rr_ok": "综合：反弹空盈亏比满足",
+    "reversion_long_volatility_enough": "日内：波动率足够",
+    "reversion_long_below_vwap": "位置：价格明显低于 VWAP",
+    "reversion_long_near_lower_band": "位置：接近布林下轨",
+    "reversion_long_entry_reversal": "入场：5分钟止跌转强",
+    "reversion_long_target_to_vwap_ok": "目标：回到 VWAP 盈亏比满足",
+    "reversion_short_volatility_enough": "日内：波动率足够",
+    "reversion_short_above_vwap": "位置：价格明显高于 VWAP",
+    "reversion_short_near_upper_band": "位置：接近布林上轨",
+    "reversion_short_entry_reversal": "入场：5分钟冲高转弱",
+    "reversion_short_target_to_vwap_ok": "目标：回到 VWAP 盈亏比满足",
+}
+
+FAMILY_LABELS = {
+    "trend_breakout": "趋势突破类",
+    "trend_pullback": "趋势回调类",
+    "intraday_mean_reversion": "日内波动回归类",
+}
+
+DIRECTION_MODE_LABELS = {
+    "both": "多空双向",
+    "long_only": "只做多",
+    "short_only": "只做空",
 }
 
 EXIT_MODE_LABELS = {
@@ -225,6 +257,69 @@ def build_default_check_map(keys: list[str], source: dict | None = None) -> dict
     return {key: bool(source.get(key, True)) for key in keys}
 
 
+def check_keys_for_family(family: str) -> tuple[list[str], list[str]]:
+    if family == "trend_pullback":
+        return (
+            [
+                "pullback_long_trend_up",
+                "pullback_long_near_support_or_ema",
+                "pullback_long_entry_reclaims_ema9",
+                "pullback_long_confirm_ema21_not_down",
+                "pullback_long_rr_ok",
+            ],
+            [
+                "pullback_short_trend_down",
+                "pullback_short_near_resistance_or_ema",
+                "pullback_short_entry_loses_ema9",
+                "pullback_short_confirm_ema21_not_up",
+                "pullback_short_rr_ok",
+            ],
+        )
+    if family == "intraday_mean_reversion":
+        return (
+            [
+                "reversion_long_volatility_enough",
+                "reversion_long_below_vwap",
+                "reversion_long_near_lower_band",
+                "reversion_long_entry_reversal",
+                "reversion_long_target_to_vwap_ok",
+            ],
+            [
+                "reversion_short_volatility_enough",
+                "reversion_short_above_vwap",
+                "reversion_short_near_upper_band",
+                "reversion_short_entry_reversal",
+                "reversion_short_target_to_vwap_ok",
+            ],
+        )
+    return (
+        [
+            "1h_price_above_ema200",
+            "1h_ema21_up",
+            "1h_hh_hl_structure",
+            "1h_profit_space_to_resistance",
+            "15m_ema9_above_ema21",
+            "15m_ema21_up",
+            "15m_volume_expanded",
+            "5m_breakout_resistance",
+            "5m_first_pullback_holds",
+            "combined_stop_less_than_half_target",
+        ],
+        [
+            "1h_price_below_ema200",
+            "1h_ema21_down",
+            "1h_ll_lh_structure",
+            "1h_profit_space_to_support",
+            "15m_ema9_below_ema21",
+            "15m_ema21_down",
+            "15m_volume_expanded",
+            "5m_breakdown_support",
+            "5m_pullback_rejects_support_as_resistance",
+            "combined_stop_less_than_half_target",
+        ],
+    )
+
+
 def render_strategy_editor(store: dict) -> None:
     strategies = store.get("strategies", [])
     if not strategies:
@@ -232,46 +327,37 @@ def render_strategy_editor(store: dict) -> None:
         return
 
     active_id = store.get("active_strategy", "")
-    labels = [strategy_label(item) for item in strategies]
-    ids = [item["id"] for item in strategies]
+    family_options = ["trend_breakout", "trend_pullback", "intraday_mean_reversion"]
+    active_strategy = find_strategy(store, active_id) or strategies[0]
+    active_family = active_strategy.get("params", {}).get("strategy", {}).get("family", "trend_breakout")
+    selected_family_label = st.selectbox(
+        "策略大类",
+        [FAMILY_LABELS[item] for item in family_options],
+        index=family_options.index(active_family if active_family in family_options else "trend_breakout"),
+    )
+    selected_family = family_options[[FAMILY_LABELS[item] for item in family_options].index(selected_family_label)]
+    family_strategies = [
+        item for item in strategies if item.get("params", {}).get("strategy", {}).get("family", "trend_breakout") == selected_family
+    ]
+    labels = [strategy_label(item) for item in family_strategies]
+    ids = [item["id"] for item in family_strategies]
     default_index = ids.index(active_id) if active_id in ids else 0
     selected_label = st.selectbox("策略", labels, index=default_index)
-    selected = strategies[labels.index(selected_label)]
+    selected = family_strategies[labels.index(selected_label)]
     selected_id = selected["id"]
     params = selected["params"]
     strategy_params = params["strategy"]
     execution_params = params["execution"]
     editable = bool(selected.get("editable", False)) and not bool(selected.get("builtin", False))
-    long_check_keys = [
-        "1h_price_above_ema200",
-        "1h_ema21_up",
-        "1h_hh_hl_structure",
-        "1h_profit_space_to_resistance",
-        "15m_ema9_above_ema21",
-        "15m_ema21_up",
-        "15m_volume_expanded",
-        "5m_breakout_resistance",
-        "5m_first_pullback_holds",
-        "combined_stop_less_than_half_target",
-    ]
-    short_check_keys = [
-        "1h_price_below_ema200",
-        "1h_ema21_down",
-        "1h_ll_lh_structure",
-        "1h_profit_space_to_support",
-        "15m_ema9_below_ema21",
-        "15m_ema21_down",
-        "15m_volume_expanded",
-        "5m_breakdown_support",
-        "5m_pullback_rejects_support_as_resistance",
-        "combined_stop_less_than_half_target",
-    ]
+    family = strategy_params.get("family", "trend_breakout")
+    direction_mode = strategy_params.get("direction_mode", "both")
+    long_check_keys, short_check_keys = check_keys_for_family(family)
 
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("当前使用", "是" if selected_id == active_id else "否")
     c2.metric("类型", "内置" if selected.get("builtin") else "自定义")
     c3.metric("可编辑", "是" if editable else "否")
-    c4.metric("最小盈亏比", strategy_params["min_rr"])
+    c4.metric("大类", FAMILY_LABELS.get(family, family))
     st.caption(selected.get("description", ""))
 
     action_col1, action_col2, action_col3 = st.columns([1, 1, 2])
@@ -299,6 +385,22 @@ def render_strategy_editor(store: dict) -> None:
         confirm_tf = tf2.selectbox("确认周期", ["5m", "15m", "30m", "1h"], index=["5m", "15m", "30m", "1h"].index(strategy_params["timeframes"]["confirm"]))
         entry_tf = tf3.selectbox("入场周期", ["1m", "3m", "5m", "15m"], index=["1m", "3m", "5m", "15m"].index(strategy_params["timeframes"]["entry"]))
 
+        st.subheader("策略分类")
+        f1, f2 = st.columns(2)
+        family_label = f1.selectbox(
+            "策略大类",
+            [FAMILY_LABELS[item] for item in family_options],
+            index=family_options.index(family if family in family_options else "trend_breakout"),
+        )
+        family = family_options[[FAMILY_LABELS[item] for item in family_options].index(family_label)]
+        direction_options = ["both", "long_only", "short_only"]
+        direction_label = f2.selectbox(
+            "方向模式",
+            [DIRECTION_MODE_LABELS[item] for item in direction_options],
+            index=direction_options.index(direction_mode if direction_mode in direction_options else "both"),
+        )
+        direction_mode = direction_options[[DIRECTION_MODE_LABELS[item] for item in direction_options].index(direction_label)]
+
         st.subheader("指标参数")
         p1, p2, p3 = st.columns(3)
         ema_fast = p1.number_input("EMA 快线", min_value=3, max_value=50, value=int(strategy_params["ema_fast"]), step=1)
@@ -323,6 +425,26 @@ def render_strategy_editor(store: dict) -> None:
         p13, p14 = st.columns(2)
         level_tolerance_pct = p13.number_input("支撑压力容差 %", min_value=0.01, max_value=2.0, value=float(strategy_params.get("level_tolerance_pct", 0.15)), step=0.01)
         min_check_score = p14.number_input("最小打勾比例", min_value=0.5, max_value=1.0, value=float(strategy_params.get("min_check_score", 0.85)), step=0.01)
+
+        if family == "intraday_mean_reversion":
+            rv1, rv2 = st.columns(2)
+            mean_reversion_min_vwap_deviation_pct = rv1.number_input(
+                "VWAP 最小偏离 %",
+                min_value=0.1,
+                max_value=5.0,
+                value=float(strategy_params.get("mean_reversion_min_vwap_deviation_pct", 0.6)),
+                step=0.1,
+            )
+            mean_reversion_min_atr_pct = rv2.number_input(
+                "ATR 最小波动 %",
+                min_value=0.1,
+                max_value=10.0,
+                value=float(strategy_params.get("mean_reversion_min_atr_pct", 0.8)),
+                step=0.1,
+            )
+        else:
+            mean_reversion_min_vwap_deviation_pct = float(strategy_params.get("mean_reversion_min_vwap_deviation_pct", 0.6))
+            mean_reversion_min_atr_pct = float(strategy_params.get("mean_reversion_min_atr_pct", 0.8))
 
         st.subheader("入场条件开关")
         lc1, lc2 = st.columns(2)
@@ -436,6 +558,8 @@ def render_strategy_editor(store: dict) -> None:
         new_params = {
             "strategy": {
             "timeframes": {"trend": trend_tf, "confirm": confirm_tf, "entry": entry_tf},
+            "family": family,
+            "direction_mode": direction_mode,
             "ema_fast": int(ema_fast),
             "ema_mid": int(ema_mid),
             "ema_slow": int(ema_slow),
@@ -448,6 +572,8 @@ def render_strategy_editor(store: dict) -> None:
             "pullback_lookback": int(pullback_lookback),
             "level_tolerance_pct": float(level_tolerance_pct),
             "min_check_score": float(min_check_score),
+            "mean_reversion_min_vwap_deviation_pct": float(mean_reversion_min_vwap_deviation_pct),
+            "mean_reversion_min_atr_pct": float(mean_reversion_min_atr_pct),
             "enabled_long_checks": long_enabled,
             "enabled_short_checks": short_enabled,
             },

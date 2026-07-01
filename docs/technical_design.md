@@ -112,6 +112,8 @@ exchange:
 
 - `core/strategy/indicators.py`
 
+提供 EMA、VWAP、ATR、布林带、成交量放大和价格接近关键位等基础计算。
+
 ### 支撑压力和结构
 
 - `core/strategy/support_resistance.py`
@@ -122,7 +124,21 @@ exchange:
 
 - `core/strategy/ema_structure.py`
 
-负责多周期行情准备、做多/做空 checklist、按启用检查项计算 score、生成 signal、计算结构止损和 RR。
+负责多周期行情准备、按策略大类生成做多/做空 checklist、按启用检查项计算 score、生成 signal、计算结构止损和 RR。
+
+策略通过 `strategy.family` 分流：
+
+- `trend_breakout`: 趋势突破类，保留原多周期突破/跌破和回踩确认逻辑。
+- `trend_pullback`: 趋势回调类，等待大趋势内的回调/反弹到均线、支撑压力或 VWAP 附近，再用小周期确认。
+- `intraday_mean_reversion`: 日内波动回归类，使用 VWAP、ATR 和布林带判断价格日内偏离，目标吃回归 VWAP / 中位线的一段。
+
+策略通过 `strategy.direction_mode` 限定方向：
+
+- `both`
+- `long_only`
+- `short_only`
+
+后续可新增策略自动选择器，根据趋势强度、VWAP 偏离、ATR 波动和区间结构，在三类策略之间给出推荐或自动切换；当前版本仍由用户手动选择策略。
 
 ## 7. 风控模块
 
