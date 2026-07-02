@@ -42,6 +42,23 @@ def rows_to_df(rows: list) -> pd.DataFrame:
     return pd.DataFrame([dict(row) for row in rows])
 
 
+def remember_operation(message: str, level: str = "success") -> None:
+    st.session_state["last_operation"] = {"message": message, "level": level, "ts": time.strftime("%H:%M:%S")}
+
+
+def render_last_operation() -> None:
+    item = st.session_state.get("last_operation")
+    if not item:
+        return
+    message = f"{item['ts']} - {item['message']}"
+    if item.get("level") == "error":
+        st.error(message)
+    elif item.get("level") == "warning":
+        st.warning(message)
+    else:
+        st.success(message)
+
+
 def checks_to_df(checks: dict) -> pd.DataFrame:
     return pd.DataFrame(
         [{"检查项": CHECK_LABELS.get(key, key), "满足": "✅" if bool(value) else "□"} for key, value in checks.items()]
@@ -411,12 +428,14 @@ def render_strategy_editor(store: dict) -> None:
     if action_col1.button("一键使用", use_container_width=True, key=f"use_{selected_id}"):
         with st.spinner("正在切换当前策略..."):
             use_strategy(store, selected_id)
+        remember_operation("已设为当前策略。")
         st.success("已设为当前策略。")
         st.rerun()
     if action_col2.button("复制策略", use_container_width=True, key=f"copy_{selected_id}"):
         with st.spinner("正在复制策略并切换使用..."):
             new_id = copy_strategy(store, selected_id)
             use_strategy(load_strategy_store(), new_id)
+        remember_operation("已复制并设为当前策略。")
         st.success("已复制并设为当前策略。")
         st.rerun()
 
@@ -664,10 +683,12 @@ def render_strategy_editor(store: dict) -> None:
         if temp_submitted:
             with st.spinner("正在临时应用本次策略参数..."):
                 save_runtime_strategy(new_params)
+            remember_operation("已临时应用本次策略参数。")
             st.success("已临时应用。本次运行会使用这些参数；另存为策略前不会写入策略库。")
         else:
             with st.spinner("正在另存为自定义策略并切换使用..."):
                 save_strategy_copy(store, selected, new_name, new_desc, new_params)
+            remember_operation("已另存为自定义策略并设为当前使用。")
             st.success("已另存为自定义策略并设为当前使用。")
         st.rerun()
 
@@ -731,6 +752,7 @@ def render_trade_config(config: dict) -> None:
         }
         with st.spinner("正在保存交易配置..."):
             save_config(updated)
+        remember_operation("交易配置已保存。")
         st.success("交易配置已保存。")
         st.rerun()
 
@@ -772,6 +794,7 @@ def render_futures_config(config: dict) -> None:
         }
         with st.spinner("正在保存合约配置..."):
             save_config(updated)
+        remember_operation("合约配置已保存。")
         st.success("合约配置已保存。")
         st.rerun()
 
@@ -785,8 +808,10 @@ def render_futures_config(config: dict) -> None:
     if config["exchange"]["market_type"] == "futures":
         if st.button("读取合约持仓", use_container_width=True):
             try:
-                with st.spinner("正在从 Binance 读取合约持仓..."):
+                with st.status("正在读取 Binance 合约持仓...", expanded=True) as status_box:
+                    st.write("正在调用 Binance futures position 接口。")
                     positions = BinanceClient(config).fetch_positions(config.get("symbols", []))
+                    status_box.update(label="合约持仓读取完成。", state="complete", expanded=True)
                 rows = [
                     {
                         "symbol": item.get("symbol"),
@@ -802,8 +827,10 @@ def render_futures_config(config: dict) -> None:
                     for item in positions
                     if float(item.get("contracts") or 0) != 0
                 ]
+                remember_operation("合约持仓读取完成。")
                 st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
             except Exception as exc:
+                remember_operation(f"读取合约持仓失败：{exc}", "error")
                 st.error(f"读取合约持仓失败：{exc}")
 
 
@@ -813,6 +840,7 @@ def main() -> None:
     db = get_db()
 
     st.title("Binance Quantize")
+    render_last_operation()
     status = db.get_state("bot_status", "paused")
     last_error = db.get_state("last_error", "")
     trade_status = trading_status(config)
@@ -845,14 +873,17 @@ def main() -> None:
             with st.spinner("正在启动机器人循环..."):
                 db.set_state("bot_status", "running")
                 start_bot(int(interval))
+            remember_operation("机器人已启动。")
             st.success("已启动")
         if st.button("暂停机器人", use_container_width=True):
             with st.spinner("正在暂停机器人..."):
                 db.set_state("bot_status", "paused")
+            remember_operation("机器人已暂停。", "warning")
             st.warning("已暂停")
         if st.button("紧急停止", use_container_width=True):
             with st.spinner("正在写入紧急停止状态..."):
                 db.set_state("bot_status", "emergency_stop")
+            remember_operation("已触发紧急停止。", "error")
             st.error("已触发紧急停止")
 
         st.header("图表")
@@ -867,16 +898,23 @@ def main() -> None:
     with tab1:
         st.caption("信号检查项来自该条信号生成时的策略快照。切换策略后，需要机器人下一轮循环或点击下方按钮，才会生成当前策略的新检查项。")
         refresh_col1, refresh_col2 = st.columns([1, 3])
+        signal_refreshed = False
         if refresh_col1.button("按当前策略刷新信号", use_container_width=True):
             try:
-                with st.spinner("正在按当前策略拉取行情并计算检查项，不会下单..."):
+                with st.status("正在按当前策略刷新信号...", expanded=True) as status_box:
+                    st.write("正在拉取多周期行情。")
+                    st.write("正在计算当前策略检查项。")
                     inserted = refresh_signals_for_current_strategy(config, db)
-                st.success(f"已按当前策略刷新 {inserted} 条信号；本操作不会下单。")
-                st.rerun()
+                    status_box.update(label=f"刷新完成：已生成 {inserted} 条信号，本操作不会下单。", state="complete", expanded=True)
+                remember_operation(f"已按当前策略刷新 {inserted} 条信号；本操作不会下单。")
+                signal_refreshed = True
             except Exception as exc:
+                remember_operation(f"刷新信号失败：{exc}", "error")
                 st.error(f"刷新信号失败：{exc}")
         refresh_col2.info(f"自动更新频率取决于机器人循环间隔；当前侧边栏默认间隔为 {int(interval)} 秒。有持仓时机器人只管理仓位，不扫描新入场信号。")
         df = rows_to_df(db.recent_rows("signals", 100))
+        if signal_refreshed:
+            st.success("下方列表已显示最新信号。")
         st.dataframe(df, use_container_width=True, hide_index=True)
         render_signal_checklist(df)
     with tab2:
@@ -904,11 +942,19 @@ def main() -> None:
         st.subheader("API 认证检测")
         st.caption("只调用账户查询接口，不会下单。用于判断 Key、Secret、IP 白名单和权限是否有效。")
         if st.button("检测 API 认证", type="primary"):
-            with st.spinner("正在调用 Binance 账户接口检测 API 认证..."):
+            with st.status("正在检测 API 认证...", expanded=True) as status_box:
+                st.write("正在调用 Binance 账户查询接口。")
                 result = signed_account_check(config)
+                status_box.update(
+                    label="API 认证检测完成。" if result.get("ok") else "API 认证检测失败。",
+                    state="complete" if result.get("ok") else "error",
+                    expanded=True,
+                )
             if result.get("ok"):
+                remember_operation("API 认证通过。")
                 st.success("API 认证通过。")
             else:
+                remember_operation("API 认证失败。", "error")
                 st.error("API 认证失败。")
             st.json(result)
     with tab11:
