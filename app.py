@@ -131,6 +131,22 @@ def render_signal_checklist(df: pd.DataFrame) -> None:
     )
 
 
+def filter_signals_by_strategy(df: pd.DataFrame, strategy_id: str) -> pd.DataFrame:
+    if df.empty or "details" not in df.columns or not strategy_id:
+        return df.iloc[0:0]
+
+    def matches_current_strategy(value: object) -> bool:
+        try:
+            details = json.loads(value) if isinstance(value, str) else value
+        except json.JSONDecodeError:
+            return False
+        if not isinstance(details, dict):
+            return False
+        return details.get("strategy_snapshot", {}).get("id") == strategy_id
+
+    return df[df["details"].apply(matches_current_strategy)]
+
+
 def trading_status(config: dict) -> dict[str, str]:
     load_dotenv(PROJECT_ROOT / ".env")
     api_key = os.getenv("BINANCE_API_KEY", "")
@@ -385,11 +401,9 @@ def render_strategy_tree_selector(strategies: list[dict], active_id: str) -> str
         expanded = family == selected_family
         with st.expander(FAMILY_LABELS.get(family, family), expanded=expanded):
             for item in family_items:
-                marker = "当前使用" if item["id"] == active_id else ("正在查看" if item["id"] == selected_id else "")
                 label = f"{item['name']}（{'内置' if item.get('builtin') else '自定义'}）"
-                if marker:
-                    label = f"{label} - {marker}"
-                if st.button(label, key=f"select_strategy_{item['id']}", use_container_width=True):
+                button_type = "primary" if item["id"] == selected_id else "secondary"
+                if st.button(label, key=f"select_strategy_{item['id']}", use_container_width=True, type=button_type):
                     st.session_state["strategy_selector_id"] = item["id"]
                     st.rerun()
     return st.session_state["strategy_selector_id"]
@@ -913,10 +927,15 @@ def main() -> None:
                 st.error(f"刷新信号失败：{exc}")
         refresh_col2.info(f"自动更新频率取决于机器人循环间隔；当前侧边栏默认间隔为 {int(interval)} 秒。有持仓时机器人只管理仓位，不扫描新入场信号。")
         df = rows_to_df(db.recent_rows("signals", 100))
+        active_strategy_id = config.get("active_strategy", {}).get("id")
+        signal_scope = st.radio("信号范围", ["仅当前策略", "全部历史"], horizontal=True)
+        display_df = filter_signals_by_strategy(df, active_strategy_id) if signal_scope == "仅当前策略" else df
         if signal_refreshed:
             st.success("下方列表已显示最新信号。")
-        st.dataframe(df, use_container_width=True, hide_index=True)
-        render_signal_checklist(df)
+        if display_df.empty and signal_scope == "仅当前策略":
+            st.info("当前策略还没有信号记录。请点击“按当前策略刷新信号”，或启动机器人等待下一轮循环。")
+        st.dataframe(display_df, use_container_width=True, hide_index=True)
+        render_signal_checklist(display_df)
     with tab2:
         df = rows_to_df(db.recent_rows("orders", 100))
         st.dataframe(df, use_container_width=True, hide_index=True)
