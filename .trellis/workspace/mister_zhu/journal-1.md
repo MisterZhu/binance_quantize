@@ -236,3 +236,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 8: Highlight strategy tree and filter signals
+
+**Date**: 2026-07-02
+**Task**: Highlight strategy tree and filter signals
+**Branch**: `main`
+
+### Summary
+
+(Add summary)
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `5940482` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

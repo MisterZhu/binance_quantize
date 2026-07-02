@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 7
+- **Total Sessions**: 8
 - **Last Active**: 2026-07-02
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~238 | Active |
+| `journal-1.md` | ~271 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 8 | 2026-07-02 | Highlight strategy tree and filter signals | `5940482` | `main` |
 | 7 | 2026-07-02 | Make loading states visible | `417ec95` | `main` |
 | 6 | 2026-07-02 | Use tree strategy selector and loading states | `69f7441` | `main` |
 | 5 | 2026-07-02 | Combine strategy selector and loading state | `561ccb7` | `main` |
