@@ -235,6 +235,11 @@ def strategy_label(strategy: dict) -> str:
     return f"{strategy['name']} ({suffix})"
 
 
+def strategy_tree_label(strategy: dict) -> str:
+    family = strategy.get("params", {}).get("strategy", {}).get("family", "trend_breakout")
+    return f"{FAMILY_LABELS.get(family, family)} / {strategy_label(strategy)}"
+
+
 def find_strategy(store: dict, strategy_id: str) -> dict | None:
     for strategy in store.get("strategies", []):
         if strategy.get("id") == strategy_id:
@@ -350,11 +355,6 @@ def check_keys_for_family(family: str) -> tuple[list[str], list[str]]:
     )
 
 
-def clear_selected_strategy_for_family() -> None:
-    # 大类变化时必须让用户重新选择子策略，避免刷新后误把第一个策略当作已选策略。
-    st.session_state["strategy_selector_id"] = ""
-
-
 def render_strategy_editor(store: dict) -> None:
     strategies = store.get("strategies", [])
     if not strategies:
@@ -363,46 +363,15 @@ def render_strategy_editor(store: dict) -> None:
 
     active_id = store.get("active_strategy", "")
     family_options = ["trend_breakout", "trend_pullback", "intraday_mean_reversion"]
-    active_strategy = find_strategy(store, active_id) or strategies[0]
-    active_family = active_strategy.get("params", {}).get("strategy", {}).get("family", "trend_breakout")
-    current_family = st.session_state.get("strategy_family_selector", active_family)
-    if current_family not in family_options:
-        current_family = active_family if active_family in family_options else "trend_breakout"
-    selector_col1, selector_col2 = st.columns(2)
-    selector_col1.selectbox(
-        "一级：策略大类",
-        family_options,
-        index=family_options.index(current_family),
-        format_func=lambda item: FAMILY_LABELS.get(item, item),
-        key="strategy_family_selector",
-        on_change=clear_selected_strategy_for_family,
-    )
-    selected_family = st.session_state["strategy_family_selector"]
-    family_strategies = [
-        item for item in strategies if item.get("params", {}).get("strategy", {}).get("family", "trend_breakout") == selected_family
-    ]
-    if not family_strategies:
-        st.warning("当前大类下没有策略。")
-        return
-
-    ids = [item["id"] for item in family_strategies]
-    if "strategy_selector_id" not in st.session_state:
-        st.session_state["strategy_selector_id"] = active_id if active_id in ids else ""
-    if st.session_state["strategy_selector_id"] and st.session_state["strategy_selector_id"] not in ids:
-        st.session_state["strategy_selector_id"] = active_id if active_id in ids else ""
-
-    strategy_options = [""] + ids
-    selected_id = selector_col2.selectbox(
-        "二级：具体策略",
+    strategy_options = [item["id"] for item in strategies]
+    default_id = active_id if active_id in strategy_options else strategy_options[0]
+    selected_id = st.selectbox(
+        "策略",
         strategy_options,
-        index=strategy_options.index(st.session_state["strategy_selector_id"]) if st.session_state["strategy_selector_id"] in strategy_options else 0,
-        format_func=lambda item: "请选择具体策略" if item == "" else strategy_label(find_strategy(store, item) or {"name": item}),
+        index=strategy_options.index(default_id),
+        format_func=lambda item: strategy_tree_label(find_strategy(store, item) or {"name": item, "params": {"strategy": {}}}),
         key="strategy_selector_id",
     )
-    if not selected_id:
-        st.info("请选择上方大类下的具体策略。选中子策略后，才会展示详情、参数和操作按钮。")
-        return
-
     selected = find_strategy(store, selected_id)
     if not selected:
         st.warning("未找到所选策略，请重新选择。")
@@ -875,7 +844,8 @@ def main() -> None:
         refresh_col1, refresh_col2 = st.columns([1, 3])
         if refresh_col1.button("按当前策略刷新信号", use_container_width=True):
             try:
-                inserted = refresh_signals_for_current_strategy(config, db)
+                with st.spinner("正在按当前策略拉取行情并计算检查项，不会下单..."):
+                    inserted = refresh_signals_for_current_strategy(config, db)
                 st.success(f"已按当前策略刷新 {inserted} 条信号；本操作不会下单。")
                 st.rerun()
             except Exception as exc:
