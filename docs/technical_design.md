@@ -266,6 +266,13 @@ exchange:
 
 后续可新增策略自动选择器，根据趋势强度、VWAP 偏离、ATR 波动和区间结构，在三类策略之间给出推荐或自动切换；当前版本仍由用户手动选择策略。
 
+策略逐项判断条件的代码等价说明见 `docs/functional_spec.md` 的“策略功能”章节。修改策略时，必须同步：
+
+- `core/strategy/ema_structure.py`
+- `app.py` 中的 `CHECK_LABELS` 和 `check_keys_for_family()`
+- `strategies.yaml`
+- `docs/functional_spec.md`
+
 ## 10. 风控模块
 
 入口：
