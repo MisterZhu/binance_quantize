@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 from core.exchange.auth_check import signed_account_check
 from core.exchange.client import BinanceClient
 from core.storage.database import Database
+from core.strategy.ema_structure import EmaStructureStrategy
 from core.strategy.indicators import add_emas, ohlcv_to_df
 from core.utils.config import (
     PROJECT_ROOT,
@@ -47,6 +48,24 @@ def checks_to_df(checks: dict) -> pd.DataFrame:
     )
 
 
+def refresh_signals_for_current_strategy(config: dict, db: Database) -> int:
+    client = BinanceClient(config)
+    strategy = EmaStructureStrategy(config)
+    timeframes = config["strategy"]["timeframes"]
+    inserted = 0
+    for symbol in config.get("symbols", []):
+        trend = client.fetch_ohlcv(symbol, timeframes["trend"], limit=260)
+        confirm = client.fetch_ohlcv(symbol, timeframes["confirm"], limit=260)
+        entry = client.fetch_ohlcv(symbol, timeframes["entry"], limit=260)
+        signal = strategy.analyze(symbol, config["exchange"]["market_type"], trend, confirm, entry).to_record()
+        # 手动刷新只用于查看当前策略检查项，不能走风控和下单流程。
+        signal["details"]["manual_preview"] = True
+        signal["details"]["strategy_snapshot"] = EmaStructureStrategy.strategy_snapshot(config)
+        db.insert_signal(signal)
+        inserted += 1
+    return inserted
+
+
 def render_signal_checklist(df: pd.DataFrame) -> None:
     if df.empty or "details" not in df.columns:
         return
@@ -54,6 +73,17 @@ def render_signal_checklist(df: pd.DataFrame) -> None:
     row = df[df["id"] == selected_id].iloc[0]
     details = json.loads(row["details"]) if isinstance(row["details"], str) else row["details"]
     direction = row.get("direction", "none")
+    snapshot = details.get("strategy_snapshot", {})
+    if snapshot:
+        st.caption(
+            "信号生成策略："
+            f"{snapshot.get('name') or snapshot.get('id') or '未知'} / "
+            f"{FAMILY_LABELS.get(snapshot.get('family'), snapshot.get('family'))} / "
+            f"{DIRECTION_MODE_LABELS.get(snapshot.get('direction_mode'), snapshot.get('direction_mode'))} / "
+            f"周期 {snapshot.get('timeframes')}"
+        )
+    if details.get("manual_preview"):
+        st.info("这条信号是手动刷新生成的策略检查预览，只写入信号记录，不会触发风控和下单。")
     st.caption(f"当前信号方向：{direction}")
 
     if direction == "long":
@@ -841,6 +871,16 @@ def main() -> None:
         ["信号", "订单", "持仓", "交易复盘", "交易事件", "风控事件", "策略", "交易配置", "合约", "API检测", "配置"]
     )
     with tab1:
+        st.caption("信号检查项来自该条信号生成时的策略快照。切换策略后，需要机器人下一轮循环或点击下方按钮，才会生成当前策略的新检查项。")
+        refresh_col1, refresh_col2 = st.columns([1, 3])
+        if refresh_col1.button("按当前策略刷新信号", use_container_width=True):
+            try:
+                inserted = refresh_signals_for_current_strategy(config, db)
+                st.success(f"已按当前策略刷新 {inserted} 条信号；本操作不会下单。")
+                st.rerun()
+            except Exception as exc:
+                st.error(f"刷新信号失败：{exc}")
+        refresh_col2.info(f"自动更新频率取决于机器人循环间隔；当前侧边栏默认间隔为 {int(interval)} 秒。有持仓时机器人只管理仓位，不扫描新入场信号。")
         df = rows_to_df(db.recent_rows("signals", 100))
         st.dataframe(df, use_container_width=True, hide_index=True)
         render_signal_checklist(df)

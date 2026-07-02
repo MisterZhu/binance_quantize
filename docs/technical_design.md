@@ -129,6 +129,8 @@ bot_runner.py / app.py
   -> Database.insert_trade_event()
 ```
 
+信号检查项在 `Database.insert_signal()` 时作为 `details` JSON 固化保存，并包含 `strategy_snapshot`。因此信号页展示的是“该条信号生成时的策略快照”，不是当前页面策略选择器的实时状态。自动更新频率由 `bot_runner.py --interval` 决定；有 active position 时只管理仓位，不扫描新入场信号。UI 的“按当前策略刷新信号”只生成预览信号，不执行风控和下单。
+
 ### 有仓位时：退出管理
 
 ```text

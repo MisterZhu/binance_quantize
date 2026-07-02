@@ -47,6 +47,7 @@ def run_once() -> None:
         confirm = client.fetch_ohlcv(symbol, timeframes["confirm"], limit=260)
         entry = client.fetch_ohlcv(symbol, timeframes["entry"], limit=260)
         signal = strategy.analyze(symbol, config["exchange"]["market_type"], trend, confirm, entry).to_record()
+        signal["details"]["strategy_snapshot"] = EmaStructureStrategy.strategy_snapshot(config)
         db.insert_signal(signal)
         logger.info("signal {} {} score={} rr={}", symbol, signal["direction"], signal["score"], signal["rr"])
 

@@ -60,6 +60,18 @@ class EmaStructureStrategy:
         self.family = str(strategy.get("family", "trend_breakout"))
         self.direction_mode = str(strategy.get("direction_mode", "both"))
 
+    @staticmethod
+    def strategy_snapshot(config: dict[str, Any]) -> dict[str, Any]:
+        """记录信号生成时的策略上下文，避免历史检查项和当前策略混淆。"""
+
+        return {
+            "id": config.get("active_strategy", {}).get("id"),
+            "name": config.get("active_strategy", {}).get("name"),
+            "family": config["strategy"].get("family"),
+            "direction_mode": config["strategy"].get("direction_mode"),
+            "timeframes": config["strategy"].get("timeframes"),
+        }
+
     def prepare(self, rows: list[list[float]]) -> pd.DataFrame:
         return add_emas(ohlcv_to_df(rows), (self.ema_fast, self.ema_mid, self.ema_slow))
 
