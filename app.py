@@ -199,8 +199,9 @@ def render_chart(config: dict) -> None:
     symbol = st.session_state.get("chart_symbol", config["symbols"][0])
     timeframe = st.session_state.get("chart_timeframe", config["strategy"]["timeframes"]["entry"])
     try:
-        client = BinanceClient(config)
-        rows = client.fetch_ohlcv(symbol, timeframe, limit=220)
+        with st.spinner(f"正在加载 {symbol} {timeframe} 行情..."):
+            client = BinanceClient(config)
+            rows = client.fetch_ohlcv(symbol, timeframe, limit=220)
         strategy = config["strategy"]
         ema_periods = (int(strategy["ema_fast"]), int(strategy["ema_mid"]), int(strategy["ema_slow"]))
         df = add_emas(ohlcv_to_df(rows), ema_periods)
@@ -233,11 +234,6 @@ def start_bot(interval: int) -> None:
 def strategy_label(strategy: dict) -> str:
     suffix = "内置" if strategy.get("builtin") else "自定义"
     return f"{strategy['name']} ({suffix})"
-
-
-def strategy_tree_label(strategy: dict) -> str:
-    family = strategy.get("params", {}).get("strategy", {}).get("family", "trend_breakout")
-    return f"{FAMILY_LABELS.get(family, family)} / {strategy_label(strategy)}"
 
 
 def find_strategy(store: dict, strategy_id: str) -> dict | None:
@@ -355,6 +351,33 @@ def check_keys_for_family(family: str) -> tuple[list[str], list[str]]:
     )
 
 
+def render_strategy_tree_selector(strategies: list[dict], active_id: str) -> str:
+    # 树状选择直接按“大类 -> 策略”组织，避免平铺列表让一级分类失去意义。
+    family_options = ["trend_breakout", "trend_pullback", "intraday_mean_reversion"]
+    strategy_ids = [item["id"] for item in strategies]
+    if "strategy_selector_id" not in st.session_state or st.session_state["strategy_selector_id"] not in strategy_ids:
+        st.session_state["strategy_selector_id"] = active_id if active_id in strategy_ids else strategy_ids[0]
+
+    selected_id = st.session_state["strategy_selector_id"]
+    selected_family = (find_strategy({"strategies": strategies}, selected_id) or {}).get("params", {}).get("strategy", {}).get("family")
+    st.markdown("**策略树**")
+    for family in family_options:
+        family_items = [item for item in strategies if item.get("params", {}).get("strategy", {}).get("family", "trend_breakout") == family]
+        if not family_items:
+            continue
+        expanded = family == selected_family
+        with st.expander(FAMILY_LABELS.get(family, family), expanded=expanded):
+            for item in family_items:
+                marker = "当前使用" if item["id"] == active_id else ("正在查看" if item["id"] == selected_id else "")
+                label = f"{item['name']}（{'内置' if item.get('builtin') else '自定义'}）"
+                if marker:
+                    label = f"{label} - {marker}"
+                if st.button(label, key=f"select_strategy_{item['id']}", use_container_width=True):
+                    st.session_state["strategy_selector_id"] = item["id"]
+                    st.rerun()
+    return st.session_state["strategy_selector_id"]
+
+
 def render_strategy_editor(store: dict) -> None:
     strategies = store.get("strategies", [])
     if not strategies:
@@ -363,15 +386,7 @@ def render_strategy_editor(store: dict) -> None:
 
     active_id = store.get("active_strategy", "")
     family_options = ["trend_breakout", "trend_pullback", "intraday_mean_reversion"]
-    strategy_options = [item["id"] for item in strategies]
-    default_id = active_id if active_id in strategy_options else strategy_options[0]
-    selected_id = st.selectbox(
-        "策略",
-        strategy_options,
-        index=strategy_options.index(default_id),
-        format_func=lambda item: strategy_tree_label(find_strategy(store, item) or {"name": item, "params": {"strategy": {}}}),
-        key="strategy_selector_id",
-    )
+    selected_id = render_strategy_tree_selector(strategies, active_id)
     selected = find_strategy(store, selected_id)
     if not selected:
         st.warning("未找到所选策略，请重新选择。")
@@ -394,12 +409,14 @@ def render_strategy_editor(store: dict) -> None:
 
     action_col1, action_col2, action_col3 = st.columns([1, 1, 2])
     if action_col1.button("一键使用", use_container_width=True, key=f"use_{selected_id}"):
-        use_strategy(store, selected_id)
+        with st.spinner("正在切换当前策略..."):
+            use_strategy(store, selected_id)
         st.success("已设为当前策略。")
         st.rerun()
     if action_col2.button("复制策略", use_container_width=True, key=f"copy_{selected_id}"):
-        new_id = copy_strategy(store, selected_id)
-        use_strategy(load_strategy_store(), new_id)
+        with st.spinner("正在复制策略并切换使用..."):
+            new_id = copy_strategy(store, selected_id)
+            use_strategy(load_strategy_store(), new_id)
         st.success("已复制并设为当前策略。")
         st.rerun()
 
@@ -645,10 +662,12 @@ def render_strategy_editor(store: dict) -> None:
             },
         }
         if temp_submitted:
-            save_runtime_strategy(new_params)
+            with st.spinner("正在临时应用本次策略参数..."):
+                save_runtime_strategy(new_params)
             st.success("已临时应用。本次运行会使用这些参数；另存为策略前不会写入策略库。")
         else:
-            save_strategy_copy(store, selected, new_name, new_desc, new_params)
+            with st.spinner("正在另存为自定义策略并切换使用..."):
+                save_strategy_copy(store, selected, new_name, new_desc, new_params)
             st.success("已另存为自定义策略并设为当前使用。")
         st.rerun()
 
@@ -710,7 +729,8 @@ def render_trade_config(config: dict) -> None:
             "cancel_unfilled_entry": bool(cancel_unfilled_entry),
             "futures_type": futures_type,
         }
-        save_config(updated)
+        with st.spinner("正在保存交易配置..."):
+            save_config(updated)
         st.success("交易配置已保存。")
         st.rerun()
 
@@ -750,7 +770,8 @@ def render_futures_config(config: dict) -> None:
             "require_protective_stop": bool(require_protective_stop),
             "min_liquidation_buffer_pct": float(min_liquidation_buffer_pct),
         }
-        save_config(updated)
+        with st.spinner("正在保存合约配置..."):
+            save_config(updated)
         st.success("合约配置已保存。")
         st.rerun()
 
@@ -764,7 +785,8 @@ def render_futures_config(config: dict) -> None:
     if config["exchange"]["market_type"] == "futures":
         if st.button("读取合约持仓", use_container_width=True):
             try:
-                positions = BinanceClient(config).fetch_positions(config.get("symbols", []))
+                with st.spinner("正在从 Binance 读取合约持仓..."):
+                    positions = BinanceClient(config).fetch_positions(config.get("symbols", []))
                 rows = [
                     {
                         "symbol": item.get("symbol"),
@@ -820,14 +842,17 @@ def main() -> None:
             st.caption(f"代理：{proxy.get('url')}")
         interval = st.number_input("循环间隔秒", min_value=30, max_value=3600, value=60, step=30)
         if st.button("启动机器人", type="primary", use_container_width=True):
-            db.set_state("bot_status", "running")
-            start_bot(int(interval))
+            with st.spinner("正在启动机器人循环..."):
+                db.set_state("bot_status", "running")
+                start_bot(int(interval))
             st.success("已启动")
         if st.button("暂停机器人", use_container_width=True):
-            db.set_state("bot_status", "paused")
+            with st.spinner("正在暂停机器人..."):
+                db.set_state("bot_status", "paused")
             st.warning("已暂停")
         if st.button("紧急停止", use_container_width=True):
-            db.set_state("bot_status", "emergency_stop")
+            with st.spinner("正在写入紧急停止状态..."):
+                db.set_state("bot_status", "emergency_stop")
             st.error("已触发紧急停止")
 
         st.header("图表")
@@ -879,7 +904,8 @@ def main() -> None:
         st.subheader("API 认证检测")
         st.caption("只调用账户查询接口，不会下单。用于判断 Key、Secret、IP 白名单和权限是否有效。")
         if st.button("检测 API 认证", type="primary"):
-            result = signed_account_check(config)
+            with st.spinner("正在调用 Binance 账户接口检测 API 认证..."):
+                result = signed_account_check(config)
             if result.get("ok"):
                 st.success("API 认证通过。")
             else:
