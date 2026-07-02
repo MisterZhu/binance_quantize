@@ -170,3 +170,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 6: Use tree strategy selector and loading states
+
+**Date**: 2026-07-02
+**Task**: Use tree strategy selector and loading states
+**Branch**: `main`
+
+### Summary
+
+(Add summary)
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `69f7441` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 5
+- **Total Sessions**: 6
 - **Last Active**: 2026-07-02
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~172 | Active |
+| `journal-1.md` | ~205 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 6 | 2026-07-02 | Use tree strategy selector and loading states | `69f7441` | `main` |
 | 5 | 2026-07-02 | Combine strategy selector and loading state | `561ccb7` | `main` |
 | 4 | 2026-07-02 | Refresh signal checklist for current strategy | `9dd69fc` | `main` |
 | 3 | 2026-07-02 | Improve strategy selector UX | `64600e9` | `main` |
